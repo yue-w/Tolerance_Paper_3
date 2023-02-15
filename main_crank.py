@@ -17,9 +17,9 @@ RECIPROCAL = False
 #number of components
 m = 5
 ## miu is shifted for Na times
-Na = 100
+Na = 500
 ## Each shift, Nb components are produced
-Nb = 10000
+Nb = 2000
 ## N samples are generated
 N = Na*Nb
 
@@ -29,11 +29,11 @@ largevalue= 20
 ## miu is shifted for M times
 M = 500
 
-A = np.array([0.48, 0.52, 1.23, 0.98, 0.52])
-B = np.array([0.5136, 1.8, 2.568,2.136, 1.8])
+A = np.array([2.4, 2.6, 6.15, 4.9,7.0 ])
+B = np.array([1.91, 1.8, 3.2, 2.14, 3.8])
 
 E = np.array([0.11, 0.23, 0.12, 0.15, 0.1])
-F = np.array([0.00410233, 0.00603333 ,0.00713333, 0.01183333, 0.00733333])
+F = np.array([0.0041, 0.0060 ,0.0071, 0.0128, 0.0073])
 
 G = np.array([0.98, 0.52, 1.23])
 H = np.array([2.136, 1.8, 2.568])
@@ -48,11 +48,11 @@ if RECIPROCAL:
     HR = np.array([2.136, 1.8, 2.568, 2.136, 1.8])* 0.2
     VR = np.array([0.001, 0.001, 0.001, 0.001, 0.001])* 0.2
 else:
-    GL = np.array([0.076, 0.104, 0.146, 0.136, 0.104])
-    HL = np.array([0.10272, 0.36, 0.5136 , 0.4272 , 0.36])
+    GL = np.array([0.076, 0.104, 0.146, 0.136, 0.172]) * 1.5
+    HL = np.array([0.10272, 0.36, 0.5136 , 0.4272 , 0.6]) * 0.5
     VL = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
-    GR = np.array([0.076, 0.104, 0.146, 0.136, 0.104])
-    HR = np.array([0.10272, 0.36, 0.5136 , 0.4272 , 0.36])
+    GR = np.array([0.076, 0.104, 0.146, 0.136, 0.172]) * 1.5
+    HR = np.array([0.10272, 0.36, 0.5136 , 0.4272 , 0.6]) * 0.5
     VR = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
 #Scrap cost of a product
 Sp = np.sum(A)/10.0
@@ -300,27 +300,37 @@ def casestudy_U_as():
     epsilon_opt_L = result['epsilon_L']
     epsilon_opt_R = result['epsilon_R']
     epsilon_opt = np.concatenate((epsilon_opt_L,epsilon_opt_R),axis=0)
-    #sigma_opt = hp.sigma(E,F,r_opt)
-    # M = hp.estimateM(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb)
-    M,U_simulation,Y = hp.U_simulation(r_opt,epsilon_opt,para,X,USY,miuY,Sp,Na,Nb,m,SYMMETRY,CLUTCH,RECIPROCAL)
+    
+
+    beta_equation = hp.beta_equation(E,F,r_opt,epsilon_opt,m,LSY,USY, miuY,D)
+
+    # M_equation = hp.M_equation(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb)
+
+    M_simulation,U_simulation,Y = hp.U_simulation(r_opt,epsilon_opt,para,X,USY,miuY,Sp,Na,Nb,m,SYMMETRY,CLUTCH,RECIPROCAL)
     hp.compare_SigmaY(Y,r_opt,epsilon_opt,D,E,F,SYMMETRY,m)
 
     print('U Equation: ', U_equation)
     print('U Simulation: ', U_simulation)
-    print("# Satisfactory product",M)
-    print('error: ', (U_equation-U_simulation)/U_simulation*100 ,'%')
-    # satisfactionrate = hp.satisfactionrate_component_product(miu,E,F,r_opt,k,NSample,USY,miuY,scenario)
-    # print('beta: ', satisfactionrate['beta'])
-    # print('sigmaY: ', hp.sigmaY(sigma_opt,D,scenario,k_opt))
+    print('error of U: ', (U_equation-U_simulation)/U_simulation*100 ,'%')
+
+    sigma_opt = hp.sigma(E,F,r_opt)
+    sigma_Y_equation = hp.sigmaY(sigma_opt, D)
+
+    print("# Satisfactory product (simulation)", M_simulation)
+    print(f"Pass rate beta (equation): {beta_equation}")
+    print(f"Error: of pass rate: {(beta_equation - M_simulation/(Na*Nb))/(M_simulation/(Na*Nb)) * 100} %")
+
+
+
     print('Process cost:', hp.Cprocess(A,B,r_opt))
     print('Maintenance cost:', hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon_opt,m,RECIPROCAL))
-    # print('N: ',N)
-    # print('M: ', M)
-    # print('Gama', satisfactionrate['gammas'])
-    hp.plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,SYMMETRY,CLUTCH)
+
+    #hp.plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,SYMMETRY,CLUTCH)
+    hp.plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,SYMMETRY,CLUTCH)
     return (M,U_simulation,Y,result)
 
-if SYMMETRY:
-    M,U,Y,result = casestudy_U()
-else:
-    M,U,Y,result = casestudy_U_as()
+if __name__ == "__main__":
+    if SYMMETRY:
+        M,U,Y,result = casestudy_U()
+    else:
+        M,U,Y,result = casestudy_U_as()

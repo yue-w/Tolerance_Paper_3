@@ -53,7 +53,7 @@ U = 992.910
 
 ans = B + np.sqrt(D*D - 0.5*C*C - np.power(A-E-np.sqrt(2)/2*C,2))
 print(ans)
-"""
+
 x = np.linspace(0, 8, 500)
 G = 0.5
 V = 1
@@ -67,3 +67,12 @@ ax.set_xlabel(r'$\epsilon$')
 ax.set_ylabel('Maintenance cost ($)')
 plt.show()
 
+"""
+#%%
+import numpy as np
+A = np.array([0.48, 0.52, 1.23, 0.98, 1.4]) * 5
+# %%
+print(A)
+# %%
+(997712-997069)/997712
+# %%

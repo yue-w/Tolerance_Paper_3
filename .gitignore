@@ -1,6 +1,10 @@
 # Ignore all resources (word etc.)
 resources/
 
+# ignore plots
+*.tif
+*.png
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

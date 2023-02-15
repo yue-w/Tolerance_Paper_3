@@ -336,6 +336,23 @@ def estimateM(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb,m,symmetry,clutch=True):
     M = len(Y_inspect)
     return (M, Y, Y_inspect)
 
+def beta_equation(E,F,r,epsilon,m,LSY,USY, miuY,D):
+    """
+    Estimate satisfaction rate of product by replacing optimal
+    values of r and epsilon into equation (13)
+    """
+
+    sigmaX_loaf = sigma_loaf_as(E,F,r,epsilon,m)
+    sigmaY_Taylor = sigmaY(sigmaX_loaf,D)
+    beta = productPassRate(LSY,USY,miuY,sigmaY_Taylor)
+    return beta
+
+# def M_equation():
+#     """
+#     Estimate the number of satisfactory 
+#     """
+#     pass
+
 def U_simulation(r,epsilon,para,X,USY,miuY,Sp,Na,Nb,m,symmetry, clutch=True, reciprocal=True):
     if symmetry:
         A = para[0]
@@ -382,7 +399,7 @@ def compare_SigmaY(Y_samples,r,epsilon,D,E,F,symmetry,m):
     print("sigmaY simulation = ", sigmaY_simulation)
     print("sigmaY equation = ", sigmaY_equation)
     error = (sigmaY_simulation-sigmaY_equation)/sigmaY_simulation
-    print('error=',error)
+    print(f'error = {error * 100} %')
     
 def generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,symmetry):
     sigmaX = sigma(E,F,r_opt)
@@ -418,7 +435,33 @@ def plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,symmetry,clutch=True):
         axs[i].set_title(title)
     axs[m].hist(y_sample, bins=n_bins)
     axs[m].set_title('Product')
-    fig.savefig(fname='hist_component_product',dpi=300)
+    
+    fig.savefig(fname='hist_component_product.tif',dpi=300)
+    plt.show()
+
+def plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,symmetry,clutch=True):
+    x_sample = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,symmetry)
+    y_sample = assembly(x_sample,clutch)
+    width = 12
+    height = 21
+    # fig, axs = plt.subplots(m+1, 1,figsize=(width,height))
+
+    n_bins = 50
+    for i in range(m):
+        plt.figure()
+        plt.hist(x_sample[i], bins=n_bins,density=True)
+        title = 'X '+ str(i+1)
+        plt.title(title)
+        plt.xlabel("Dimension (mm)")
+        plt.ylabel("Probability")
+        plt.savefig(fname='hist_component_' + str(i) + ".tif", dpi=300)
+    plt.figure()
+    plt.hist(y_sample, bins=n_bins,density=True)
+    plt.xlabel("Dimension (mm)")
+    plt.ylabel("Probability")
+    plt.title('Y')
+    plt.savefig(fname='hist_product.tif',dpi=300)
+    plt.show()
 
 def phi(x):
     return 0.5*(1+erf(x/np.sqrt(2)))
