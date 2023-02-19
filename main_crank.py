@@ -8,8 +8,6 @@ Created on Fri Jun 11 20:26:51 2021
 import numpy as np
 import matplotlib.pyplot as plt
 import helpers as hp
-import matplotlib.pyplot as plt
-from scipy import stats
 import nlopt
 
 CLUTCH = False
@@ -23,8 +21,8 @@ Nb = 2000
 ## N samples are generated
 N = Na*Nb
 
-smallvalue = 0#1e-2 # Lower bound is 0, to prevent dividing by zero, set lower bond to a small value
-largevalue= 20
+smallvalue = 0 #1e-2 # Lower bound is 0, to prevent dividing by zero, set lower bond to a small value
+largevalue= 100
 
 ## miu is shifted for M times
 M = 500
@@ -72,29 +70,6 @@ miuY = 992.9096
 USY = miuY + 4
 LSY = miuY - 4
 
-epsilon_zero = 1.5
-e1L = epsilon_zero
-e2L = epsilon_zero
-e3L = epsilon_zero
-e4L = epsilon_zero
-e5L = epsilon_zero
-e1R = epsilon_zero
-e2R = epsilon_zero
-e3R = epsilon_zero
-e4R = epsilon_zero
-e5R = epsilon_zero
-
-
-
-epsilon0 = np.array([e1L, e2L, e3L, e4L, e5L, e1R, e2R, e3R, e4R, e5R])
-grad_epsilon = np.zeros(2*m)
-    
-#Concatenate r and epsilon into a numpy array
-r0 = np.ones(5) * 10.0
-grad_r = np.zeros(m)
-# x = np.concatenate((r0,epsilon0),axis=0)
-
-
 def obj(x,grad,para):
     #retrieve r as the optimization variable x. (k will not be optimized, so just use const)
     # A = para[0]
@@ -120,6 +95,9 @@ def obj(x,grad,para):
     HR = para["HR"]
     VR = para["VR"]
     D = para["D"]
+    grad_r = para["grad_r"]
+    grad_epsilon = para["grad_epsilon"]
+
 
     r = x[0:m]
     num_m = m
@@ -183,6 +161,8 @@ def obj_jcp(x,grad,para):
     VR = para["VR"]
     D = para["D"]
     control_cost = para["control_cost"]
+    grad_r = para["grad_r"]
+    # grad_epsilon = para["grad_epsilon"]
 
 
     r = x[0:m]
@@ -225,7 +205,7 @@ def obj_jcp(x,grad,para):
     return U
 
 
-def optimize(prnt,para,upper_bounds=False):
+def optimize(prnt,para, r0, epsilon0, upper_bounds=False):
     result = {}    
     
     opt = nlopt.opt(nlopt.LD_MMA, 3*m) # MMA (Method of Moving Asymptotes) and CCSA LD_MMA
@@ -256,7 +236,7 @@ def optimize(prnt,para,upper_bounds=False):
         print("result code = ", opt.last_optimize_result())    
     return result
     
-def optimize_jcp(para,prnt=False):
+def optimize_jcp(para, r0, prnt=False):
     result = {}    
     
     opt = nlopt.opt(nlopt.LD_MMA, m) # MMA (Method of Moving Asymptotes) and CCSA LD_MMA
@@ -288,8 +268,12 @@ def casestudy_U():
     #para = np.array([A,B,E,F,GL,HL,VL,GR,HR,VR,D])
     para = {"A":A,"B":B,"E":E,"F":F,"GL":GL,"HL":HL,"VL":VL,"GR":GR,"HR":HR,"VR":VR,"D":D}
     para["control_cost"] = True
+    para["grad_r"] = np.zeros(m)
+    para["grad_epsilon"] = np.zeros(2*m)
     prnt=True
-    result = optimize(prnt,para)
+    epsilon0 = np.array([1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5])
+    r0 = np.ones(5) * 10.0
+    result = optimize(prnt,para, r0, epsilon0)
     U_equation = result['U']
     r_opt = result['r']
     epsilon_opt_L = result['epsilon_L']
@@ -335,8 +319,9 @@ def casestudy_U_jcp(max_epsilon,control_cost=True):
     para = {"A":A,"B":B,"E":E,"F":F,"GL":GL,"HL":HL,"VL":VL,"GR":GR,"HR":HR,"VR":VR,"D":D}
     para["control_cost"] = control_cost
     para["epsilon_fix"] = max_epsilon
-    
-    result = optimize_jcp(para)
+    para["grad_r"] = np.zeros(m)
+    r0 = np.ones(5) * 10.0
+    result = optimize_jcp(para,r0)
     U_eq = result['U']
     r_opt = result['r']
     sigma_opt = hp.sigma(E,F,r_opt)
@@ -350,15 +335,20 @@ def casestudy_U_jcp(max_epsilon,control_cost=True):
 
     return U_eq, U_simu, sigmaY_eq, sigmaY_simu
 
-def casestudy_U_this(max_epsilon):
+def casestudy_U_this(max_epsilon, control_cost=True):
     """
     The method proposed in this paper
     Optimize r and epsilon, with the upper bound of epsilon being max_epsilon
     """
     para = {"A":A,"B":B,"E":E,"F":F,"GL":GL,"HL":HL,"VL":VL,"GR":GR,"HR":HR,"VR":VR,"D":D}
+    para["control_cost"] = control_cost
     para["max_epsilon"] = max_epsilon
+    para["grad_r"] = np.zeros(m)
+    para["grad_epsilon"] = np.zeros(2*m)
+    epsilon0 = np.array([max_epsilon/2]*(2*m))
+    r0 = np.ones(5) * 10.0
     prnt=True
-    result = optimize(prnt,para,upper_bounds=True)
+    result = optimize(prnt,para,r0, epsilon0, upper_bounds=True)
     U_equation = result['U']
     r_opt = result['r']
     epsilon_opt_L = result['epsilon_L']
@@ -394,43 +384,96 @@ def casestudy_U_this(max_epsilon):
 
     return U_equation, U_simulation, sigmaY_eq, sigmaY_simu
 
-def comparison_1(min_epsilon=0, max_epsilon=3, count=10):
+def plot_compare_error(x, y1, y2, x_label, y1_label, y2_label, label1, label2, \
+    color1='green', color2='blue', marker1='+', marker2='x', fname="comparison.tif"):
+    fig, ax1 = plt.subplots()
+
+    ax2 = ax1.twinx()
+    lns1 = ax1.plot(x, y1, color=color1,linestyle='solid', marker=marker1, label=label1)
+    lns2 = ax2.plot(x, y2, color=color2,linestyle='solid', marker=marker2, label=label2)
+
+    ax1.set_xlabel(x_label)
+    ax1.set_ylabel(y1_label, color=color1)
+    ax2.set_ylabel(y2_label, color=color2)
+    lns = lns1 + lns2
+    labs = [l.get_label() for l in lns]
+    ax1.legend(lns, labs,loc="center left")
+    plt.grid()
+    fig.savefig(fname,dpi=300)
+    plt.show()
+
+def plot_compare_U(x, U1, U2, x_label, y_label,label1, label2,\
+    color1='red', color2='cyan', marker1='o', marker2='s',fname="compare_U.tif"):
+    fig, ax1 = plt.subplots()
+
+    ax1.plot(x, U1, color=color1, linestyle='solid', marker=marker1,label=label1)
+    ax1.plot(x, U2, color=color2, linestyle='solid', marker=marker2,label=label2)
+
+    ax1.set_xlabel(x_label)
+    ax1.set_ylabel(y_label)
+    ax1.legend()
+    plt.grid(True)
+    fig.savefig(fname,dpi=300)
+    plt.show()
+
+def comparison(min_epsilon=0, max_epsilon=3, count=10):
     """
     Compare the proposed method to the method proposed in JCP paper.
     """
     epsilons = np.linspace(min_epsilon, max_epsilon, count, endpoint=True)
-    rst_U_eq_jcp = []
-    rst_U_simu_jcp = []
-    rst_sigmaY_eq_jcp = []
-    rst_sigmaY_simu_jcp = []
-    rst_U_eq = []
-    rst_U_simu = []
-    rst_sigmaY_eq = []
-    rst_sigmaY_simu = []
-    for epsilon in epsilons:
-        ## since the upbound is epsilon, make sure the initial value of epsilon 
-        ## is less than epsilon
+    rst_U_eq_jcp = np.zeros(count)
+    rst_U_simu_jcp = np.zeros(count)
+    rst_sigmaY_eq_jcp = np.zeros(count)
+    rst_sigmaY_simu_jcp = np.zeros(count)
+    rst_U_eq = np.zeros(count)
+    rst_U_simu = np.zeros(count)
+    rst_sigmaY_eq = np.zeros(count)
+    rst_sigmaY_simu = np.zeros(count)
+    for i, epsilon in enumerate(epsilons):
         ## get the U, and sigmaY from both equation and simulation of the JCP method
         U_eq_jcp,U_simu_jcp, sigmaY_eq_jcp, sigmaY_simu_jcp = \
             casestudy_U_jcp(epsilon, control_cost=True)
-        rst_U_eq_jcp.append(U_eq_jcp)
-        rst_U_simu_jcp.append(U_simu_jcp)
-        rst_sigmaY_eq_jcp.append(sigmaY_eq_jcp)
-        rst_sigmaY_simu_jcp.append(sigmaY_simu_jcp)
+        rst_U_eq_jcp[i] = U_eq_jcp
+        rst_U_simu_jcp[i] = U_simu_jcp
+        rst_sigmaY_eq_jcp[i] = sigmaY_eq_jcp
+        rst_sigmaY_simu_jcp[i] = sigmaY_simu_jcp
         U_eq, U_simu, sigmaY_eq, sigmaY_simu = \
-            casestudy_U_this(epsilon)
-        rst_U_eq.append(U_eq)
-        rst_U_simu.append(U_simu)
-        rst_sigmaY_eq.append(sigmaY_eq)
-        rst_sigmaY_simu.append(sigmaY_simu)
-    
-    print('A')
+            casestudy_U_this(epsilon, control_cost=True)
+        rst_U_eq[i] = U_eq
+        rst_U_simu[i] = U_simu
+        rst_sigmaY_eq[i] = sigmaY_eq
+        rst_sigmaY_simu[i] = sigmaY_simu
 
-    # plot rst_U - epsilons for both JCP and this paper
-    # plot rst_error - epsilons for both JCP and this paper
+    error_sigY_eq_jcp = (rst_sigmaY_eq_jcp - rst_sigmaY_simu_jcp) / rst_sigmaY_simu_jcp * 100
+    error_sigY_eq = (rst_sigmaY_eq - rst_sigmaY_simu) / rst_sigmaY_simu * 100
+    print(f"Error of U by JCP: {error_sigY_eq_jcp}%")
+    print(f"Error of U by this research: {error_sigY_eq}%")
+    
+    plot_compare_error(epsilons, error_sigY_eq, error_sigY_eq_jcp, r'$\it{\epsilon}$', \
+        y1_label=r'Relative error (%) of $\it{\sigma}_Y$ (this paper)', \
+        y2_label=r'Relative error (%) of $\it{\sigma}_Y$ (Wang et al. 2021)',\
+        label1 = "This paper",\
+        label2 = "Wang et al. 2021",\
+        marker1='^', marker2='p',\
+        fname="compare_error_sigY.tiff")
+
+    error_U_eq_jcp = (rst_U_eq_jcp - rst_U_simu_jcp) / rst_U_simu_jcp * 100
+    error_U_eq = (rst_U_eq - rst_U_simu) / rst_U_simu * 100
+    print(f"Error of U by JCP: {error_U_eq_jcp}%")
+    print(f"Error of U by this research: {error_U_eq}%")
+    plot_compare_error(epsilons, error_U_eq, error_U_eq_jcp, x_label=r'$\it{\epsilon}$', \
+        y1_label=r'Relative error (%) of $U$ (this paper)', \
+        y2_label=r'Relative error (%) of $U$ (Wang et al. 2021)',\
+        label1 = "This paper",\
+        label2 = "Wang et al. 2021",\
+        marker1='+', marker2='x',\
+        fname="compare_error_U.tiff")
+    plot_compare_U(epsilons, rst_U_simu, rst_U_simu_jcp, r'$\it{\epsilon}$',\
+         y_label="$U$",label1="This paper",label2="Wang et al. 2021")
+
+
 
 if __name__ == "__main__":
-
-    M,U,Y,result = casestudy_U()
-    # print("################## Experiment 1 ###################")
-    # comparison_1()
+    # M,U,Y,result = casestudy_U()
+    print("################## Experiment 1 ###################")
+    comparison()

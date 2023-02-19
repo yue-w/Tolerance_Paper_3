@@ -76,3 +76,46 @@ print(A)
 # %%
 (997712-997069)/997712
 # %%
+import numpy as np
+import matplotlib.pyplot as plt
+x = np.linspace(0, 3, 10, endpoint=True)
+y1 = 0.05 * x**2
+y2 = -1 *y1
+
+def plot_compare_U(x, U1, U2, x_label, y_label,fname="compare_U.tif"):
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    lns1 = ax1.plot(x, U1, color='cyan', linestyle='solid',marker='*', label='U1')
+    lns2 = ax2.plot(x, U2, color='green',linestyle='solid', marker='p', label="U2")
+
+    ax1.set_xlabel(r'$\it{\sigma}_Y$')
+    ax1.set_ylabel(r'an equation: $E=mc^2$, test') 
+    ax2.set_ylabel(r'an equation: $E=mc^2$, test') 
+    fig.savefig(fname,dpi=300)
+    # ax1.legend(p,[p_.get_label() for p_ in p], loc= 'best', fontsize='small', ncol=2,)
+    # fig.legend(loc="upper right")
+    # ax1.legend(loc=0)
+    # ax2.legend(loc=0)
+    lns = [lns1, lns2]
+    labs = [l.get_label() for l in lns]
+    ax1.legend(lns, labs, loc=0)
+    ax1.grid(True)   
+    plt.show()
+
+plot_compare_U(x, y1, y2, "x", "y1")
+# %%
+x = np.arange(0, 10, 0.1)
+y1 = 0.05 * x**2
+y2 = -1 *y1
+
+fig, ax1 = plt.subplots()
+
+ax2 = ax1.twinx()
+ax1.plot(x, y1, 'g-')
+ax2.plot(x, y2, 'b-')
+
+ax1.set_xlabel('X data')
+ax1.set_ylabel('Y1 data', color='g')
+ax2.set_ylabel('Y2 data', color='b')
+
+plt.show()
