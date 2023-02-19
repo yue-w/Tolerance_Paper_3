@@ -72,7 +72,7 @@ miuY = 992.9096
 USY = miuY + 4
 LSY = miuY - 4
 
-epsilon_zero = 3.0
+epsilon_zero = 1.5
 e1L = epsilon_zero
 e2L = epsilon_zero
 e3L = epsilon_zero
@@ -120,7 +120,7 @@ def obj(x,grad,para):
     VR = para["VR"]
     D = para["D"]
 
-
+    r = x[0:m]
     num_m = m
     epsilon = x[num_m:]
     sigmaX = hp.sigma(E,F,r)
@@ -241,7 +241,7 @@ def optimize(prnt,para,upper_bounds=False):
 
         
     opt.set_xtol_rel(1e-4)
-    x0 = np.concatenate((r[:], epsilon[:]),axis = 0)
+    x0 = np.concatenate((r,epsilon),axis = 0)
     x = opt.optimize(x0)
     #U_init = hp.U_scrap(cost,USY,miuY,sigmaY_Taylor,k,Sp,Sc)
     minf = opt.last_optimum_value()
