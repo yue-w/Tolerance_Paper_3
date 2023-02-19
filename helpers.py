@@ -242,14 +242,11 @@ def dCiprocess_dri(Bi,ri):
     return -Bi*math.pow(ri,-2)
 
 #dci_depsiloni
-def dCcontrol_depsiloni(Hi,Vi,epsiloni,symmetry, reciprocal=True):
-    if symmetry:
-        return -Hi*math.pow(epsiloni+Vi,-2)
+def dCcontrol_depsiloni(Hi,Vi,epsiloni, reciprocal=True):
+    if reciprocal:
+        return -0.5*Hi*math.pow(epsiloni+Vi,-2)
     else:
-        if reciprocal:
-            return -0.5*Hi*math.pow(epsiloni+Vi,-2)
-        else:
-            return -Hi*Vi*np.exp(-epsiloni*Vi)
+        return -Hi*Vi*np.exp(-epsiloni*Vi)
 
 #dsigma/dr
 def dsigmai_dri(Fi,ri):
@@ -329,8 +326,8 @@ def dU_depsiloni_as(Cprocess,Ccontrol,Sp,dCcontroli_depsiloni_v, beta, dbeta_dep
     return value
 
     
-def estimateM(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb,m,symmetry,clutch=True):
-    x = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,symmetry)
+def estimateM(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb,m,clutch=True):
+    x = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X)
     Y = assembly(x,clutch)
     Y_inspect = Y[np.logical_and(Y>=2*miuY-USY,Y<=USY)]
     M = len(Y_inspect)
@@ -353,66 +350,55 @@ def beta_equation(E,F,r,epsilon,m,LSY,USY, miuY,D):
 #     """
 #     pass
 
-def U_simulation(r,epsilon,para,X,USY,miuY,Sp,Na,Nb,m,symmetry, clutch=True, reciprocal=True):
-    if symmetry:
-        A = para[0]
-        B = para[1]
-        E = para[2]
-        F = para[3]
-        G = para[4]
-        H = para[5]
-        V = para[6]
-        #Total cost 
-        Cprocess_v = Cprocess(A,B,r)
-        Ccontrol_v = Ccontrol(G,H,V,epsilon,reciprocal)
-        NSample = Na*Nb
-        M, Y, _ = estimateM(X,E,F,r,epsilon,USY,miuY,Na,Nb,m,symmetry,clutch)
-        Ct = np.sum(np.multiply(NSample,Cprocess_v+Ccontrol_v)) + Sp*(np.abs(NSample-M))
-        U = Ct/M
-    else:
-        A = para[0]
-        B = para[1]
-        E = para[2]
-        F = para[3]
-        GL = para[4]
-        HL = para[5]
-        VL = para[6]
-        GR = para[7]
-        HR = para[8]
-        VR = para[9]
-        Cprocess_v = Cprocess(A,B,r)
+def U_simulation(r,epsilon,para,X,USY,miuY,Sp,Na,Nb,m, clutch=True,reciprocal=True):
+
+    A = para["A"]
+    B = para["B"]
+    E = para["E"]
+    F = para["F"]
+    GL = para["GL"]
+    HL = para["HL"]
+    VL = para["VL"]
+    GR = para["GR"]
+    HR = para["HR"]
+    VR = para["VR"]
+    D = para["D"]
+    control_cost = para["control_cost"]
+
+
+    Cprocess_v = Cprocess(A,B,r)
+    
+    Ccontrol_v = np.zeros(m)
+    if control_cost:    
         Ccontrol_v = Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon,m,reciprocal)
-        NSample = Na*Nb
-        M, Y, _ = estimateM(X,E,F,r,epsilon,USY,miuY,Na,Nb,m,symmetry,clutch)
-        Ct = np.sum(np.multiply(NSample,Cprocess_v+Ccontrol_v)) + Sp*(np.abs(NSample-M))
-        U = Ct/M
+    NSample = Na*Nb
+    M, Y, _ = estimateM(X,E,F,r,epsilon,USY,miuY,Na,Nb,m,clutch)
+    Ct = np.sum(np.multiply(NSample,Cprocess_v+Ccontrol_v)) + Sp*(np.abs(NSample-M))
+    ## debug
+    # Ct = np.sum(np.multiply(NSample,Cprocess_v)) + Sp*(np.abs(NSample-M))
+
+    U = Ct/M
 
     return (M,U,Y)
 
-def compare_SigmaY(Y_samples,r,epsilon,D,E,F,symmetry,m):
-    if symmetry:
-        sigmaX_loaf = sigma_loaf(E,F,r, epsilon)
-    else:
-        sigmaX_loaf = sigma_loaf_as(E,F,r, epsilon,m)
+def compare_SigmaY(Y_samples,r,epsilon,D,E,F,m):
+    sigmaX_loaf = sigma_loaf_as(E,F,r, epsilon,m)
     sigmaY_equation = sigmaY(sigmaX_loaf,D)
     _,sigmaY_simulation = stat_parameters_simulation(Y_samples)
     print("sigmaY simulation = ", sigmaY_simulation)
     print("sigmaY equation = ", sigmaY_equation)
     error = (sigmaY_simulation-sigmaY_equation)/sigmaY_simulation
     print(f'error = {error * 100} %')
+    return sigmaY_equation, sigmaY_simulation
     
-def generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,symmetry):
+def generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X):
     sigmaX = sigma(E,F,r_opt)
     ## Generate normal distribution, the mean of which deviate.
     x_vec = np.zeros((m,Na,Nb))
     for i in range(m): ## For each type of component
         for j in range(Na): ## The mean deviates Na times
-            if symmetry:
-                left = epsilon_opt[i]*sigmaX[i]
-                right = epsilon_opt[i]*sigmaX[i]
-            else:
-                left = epsilon_opt[i]*sigmaX[i]
-                right = epsilon_opt[i+m]*sigmaX[i]
+            left = epsilon_opt[i]*sigmaX[i]
+            right = epsilon_opt[i+m]*sigmaX[i]
             miu_low = X[i] - left
             miu_high = X[i] + right
             miu = np.random.uniform(miu_low,miu_high,1)
@@ -421,8 +407,8 @@ def generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,symmetry):
     x_vec = x_vec.reshape(m,-1)
     return x_vec
 
-def plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,symmetry,clutch=True):
-    x_sample = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,symmetry)
+def plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,clutch=True):
+    x_sample = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X)
     y_sample = assembly(x_sample,clutch)
     width = 12
     height = 21
@@ -439,8 +425,8 @@ def plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,symmetry,clutch=True):
     fig.savefig(fname='hist_component_product.tif',dpi=300)
     plt.show()
 
-def plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,symmetry,clutch=True):
-    x_sample = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,symmetry)
+def plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,clutch=True):
+    x_sample = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X)
     y_sample = assembly(x_sample,clutch)
     width = 12
     height = 21
