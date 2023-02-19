@@ -23,7 +23,7 @@ Nb = 2000
 ## N samples are generated
 N = Na*Nb
 
-smallvalue = 1e-2 # Lower bound is 0, to prevent dividing by zero, set lower bond to a small value
+smallvalue = 0#1e-2 # Lower bound is 0, to prevent dividing by zero, set lower bond to a small value
 largevalue= 20
 
 ## miu is shifted for M times
@@ -84,14 +84,15 @@ e3R = epsilon_zero
 e4R = epsilon_zero
 e5R = epsilon_zero
 
-grad_r = np.zeros(m)
 
-epsilon = np.array([e1L, e2L, e3L, e4L, e5L, e1R, e2R, e3R, e4R, e5R])
+
+epsilon0 = np.array([e1L, e2L, e3L, e4L, e5L, e1R, e2R, e3R, e4R, e5R])
 grad_epsilon = np.zeros(2*m)
     
 #Concatenate r and epsilon into a numpy array
-r = np.ones(5) * 10.0
-x = np.concatenate((r,epsilon),axis=0)
+r0 = np.ones(5) * 10.0
+grad_r = np.zeros(m)
+# x = np.concatenate((r0,epsilon0),axis=0)
 
 
 def obj(x,grad,para):
@@ -241,7 +242,7 @@ def optimize(prnt,para,upper_bounds=False):
 
         
     opt.set_xtol_rel(1e-4)
-    x0 = np.concatenate((r,epsilon),axis = 0)
+    x0 = np.concatenate((r0,epsilon0),axis = 0)
     x = opt.optimize(x0)
     #U_init = hp.U_scrap(cost,USY,miuY,sigmaY_Taylor,k,Sp,Sc)
     minf = opt.last_optimum_value()
@@ -269,7 +270,7 @@ def optimize_jcp(para,prnt=False):
 
         
     opt.set_xtol_rel(1e-4)
-    x0 = r[:]
+    x0 = r0[:]
     x = opt.optimize(x0)
     minf = opt.last_optimum_value()
     result['U'] = minf
@@ -407,6 +408,8 @@ def comparison_1(min_epsilon=0, max_epsilon=3, count=10):
     rst_sigmaY_eq = []
     rst_sigmaY_simu = []
     for epsilon in epsilons:
+        ## since the upbound is epsilon, make sure the initial value of epsilon 
+        ## is less than epsilon
         ## get the U, and sigmaY from both equation and simulation of the JCP method
         U_eq_jcp,U_simu_jcp, sigmaY_eq_jcp, sigmaY_simu_jcp = \
             casestudy_U_jcp(epsilon, control_cost=True)
