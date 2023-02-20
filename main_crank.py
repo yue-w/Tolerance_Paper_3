@@ -30,7 +30,7 @@ M = 500
 A = np.array([2.4, 2.6, 6.15, 4.9,7.0 ])
 B = np.array([1.91, 1.8, 3.2, 2.14, 3.8])
 
-E = np.array([0.11, 0.23, 0.12, 0.15, 0.1])
+E = np.array([0.11, 0.23, 0.12, 0.15, 0.1]) 
 F = np.array([0.0041, 0.0060 ,0.0071, 0.0128, 0.0073])
 
 G = np.array([0.98, 0.52, 1.23])
@@ -305,7 +305,7 @@ def casestudy_U():
     print('Process cost:', hp.Cprocess(A,B,r_opt))
     print('Maintenance cost:', hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon_opt,m,RECIPROCAL))
 
-
+    hp.plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,CLUTCH)
     return (M,U_simulation,Y,result)
 
 
@@ -398,7 +398,7 @@ def plot_compare_error(x, y1, y2, x_label, y1_label, y2_label, label1, label2, \
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
     ax1.legend(lns, labs,loc="center left")
-    plt.grid()
+    ax1.grid(True)
     fig.savefig(fname,dpi=300)
     plt.show()
 
@@ -412,7 +412,7 @@ def plot_compare_U(x, U1, U2, x_label, y_label,label1, label2,\
     ax1.set_xlabel(x_label)
     ax1.set_ylabel(y_label)
     ax1.legend()
-    plt.grid(True)
+    ax1.grid(True)
     fig.savefig(fname,dpi=300)
     plt.show()
 
@@ -474,6 +474,6 @@ def comparison(min_epsilon=0, max_epsilon=3, count=10):
 
 
 if __name__ == "__main__":
-    # M,U,Y,result = casestudy_U()
+    M,U,Y,result = casestudy_U()
     print("################## Experiment 1 ###################")
     comparison()
