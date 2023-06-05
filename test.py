@@ -89,6 +89,7 @@ def plot_compare_U(x, U1, U2, x_label, y_label,fname="compare_U.tif"):
     lns2 = ax2.plot(x, U2, color='green',linestyle='solid', marker='s', label="U2")
 
     ax1.set_xlabel(r'$\it{\sigma}_{Y}$')
+    i = 1
     ax1.set_ylabel(f'$x_{i}$') 
     ax2.set_ylabel(r'an equation: $E=mc^2$, test') 
     fig.savefig(fname,dpi=300)
@@ -104,4 +105,9 @@ def plot_compare_U(x, U1, U2, x_label, y_label,fname="compare_U.tif"):
 
 plot_compare_U(x, y1, y2, "x", "y1")
 
+# %%
+x = [21,22,23,4,5,6,77,8,9,10,31,32,33,34,35,36,37,18,49,50,100]
+num_bins = 5
+n, bins, patches = plt.hist(x, num_bins, edgecolor="yellow", facecolor='green', alpha=0.5)
+plt.show()
 # %%

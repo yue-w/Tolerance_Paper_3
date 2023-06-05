@@ -445,11 +445,13 @@ def comparison(min_epsilon=0, max_epsilon=3, count=10):
         rst_sigmaY_simu[i] = sigmaY_simu
 
     error_sigY_eq_jcp = (rst_sigmaY_eq_jcp - rst_sigmaY_simu_jcp) / rst_sigmaY_simu_jcp * 100
+    error_sigY_eq_jcp = np.abs(error_sigY_eq_jcp)
     error_sigY_eq = (rst_sigmaY_eq - rst_sigmaY_simu) / rst_sigmaY_simu * 100
+    error_sigY_eq = np.abs(error_sigY_eq)
     print(f"Error of U by JCP: {error_sigY_eq_jcp}%")
     print(f"Error of U by this research: {error_sigY_eq}%")
     
-    plot_compare_error(epsilons, error_sigY_eq, error_sigY_eq_jcp, r'$\it{\epsilon}$', \
+    plot_compare_error(epsilons, error_sigY_eq, error_sigY_eq_jcp, r'$\it{\tau}$', \
         y1_label=r'Relative error (%) of $\it{\sigma}_Y$ (this paper)', \
         y2_label=r'Relative error (%) of $\it{\sigma}_Y$ (Wang et al. 2021)',\
         label1 = "This paper",\
@@ -458,17 +460,19 @@ def comparison(min_epsilon=0, max_epsilon=3, count=10):
         fname="compare_error_sigY.tiff")
 
     error_U_eq_jcp = (rst_U_eq_jcp - rst_U_simu_jcp) / rst_U_simu_jcp * 100
+    error_U_eq_jcp = np.abs(error_U_eq_jcp)
     error_U_eq = (rst_U_eq - rst_U_simu) / rst_U_simu * 100
+    error_U_eq = np.abs(error_U_eq)
     print(f"Error of U by JCP: {error_U_eq_jcp}%")
     print(f"Error of U by this research: {error_U_eq}%")
-    plot_compare_error(epsilons, error_U_eq, error_U_eq_jcp, x_label=r'$\it{\epsilon}$', \
+    plot_compare_error(epsilons, error_U_eq, error_U_eq_jcp, x_label=r'$\it{\tau}$', \
         y1_label=r'Relative error (%) of $U$ (this paper)', \
         y2_label=r'Relative error (%) of $U$ (Wang et al. 2021)',\
         label1 = "This paper",\
         label2 = "Wang et al. 2021",\
         marker1='+', marker2='x',\
         fname="compare_error_U.tiff")
-    plot_compare_U(epsilons, rst_U_simu, rst_U_simu_jcp, r'$\it{\epsilon}$',\
+    plot_compare_U(epsilons, rst_U_simu, rst_U_simu_jcp, r'$\it{\tau}$',\
          y_label="$U$",label1="This paper",label2="Wang et al. 2021")
 
 
