@@ -8,8 +8,6 @@ Created on Fri Jun 11 20:26:51 2021
 import numpy as np
 import matplotlib.pyplot as plt
 import helpers as hp
-import matplotlib.pyplot as plt
-from scipy import stats
 import nlopt
 
 CLUTCH = False
@@ -23,8 +21,8 @@ Nb = 2000
 ## N samples are generated
 N = Na*Nb
 
-smallvalue = 1e-2 # Lower bound is 0, to prevent dividing by zero, set lower bond to a small value
-largevalue= 20
+smallvalue = 0 #1e-2 # Lower bound is 0, to prevent dividing by zero, set lower bond to a small value
+largevalue= 100
 
 ## miu is shifted for M times
 M = 500
@@ -32,7 +30,7 @@ M = 500
 A = np.array([2.4, 2.6, 6.15, 4.9,7.0 ])
 B = np.array([1.91, 1.8, 3.2, 2.14, 3.8])
 
-E = np.array([0.11, 0.23, 0.12, 0.15, 0.1])
+E = np.array([0.11, 0.23, 0.12, 0.15, 0.1]) 
 F = np.array([0.0041, 0.0060 ,0.0071, 0.0128, 0.0073])
 
 G = np.array([0.98, 0.52, 1.23])
@@ -72,88 +70,35 @@ miuY = 992.9096
 USY = miuY + 4
 LSY = miuY - 4
 
-e1L = 3.0
-e2L = 3.0
-e3L = 3.0
-e4L = 3.0
-e5L = 3.0
-e1R = 3.0
-e2R = 3.0
-e3R = 3.0
-e4R = 3.0
-e5R = 3.0
-
-SYMMETRY = False
-
-grad_r = np.zeros(m)
-
-if SYMMETRY:
-    epsilon = np.array([e1L, e2L, e3L, e4L, e5L])
-    grad_epsilon = np.zeros(m)
-else:
-    epsilon = np.array([e1L, e2L, e3L, e4L, e5L, e1R, e2R, e3R, e4R, e5R])
-    grad_epsilon = np.zeros(2*m)
-    
-#Concatenate r and epsilon into a numpy array
-r = np.ones(5) * 10.0
-x = np.concatenate((r,epsilon),axis=0)
-
-
 def obj(x,grad,para):
     #retrieve r as the optimization variable x. (k will not be optimized, so just use const)
-    A = para[0]
-    B = para[1]
-    E = para[2]
-    F = para[3]
-    G = para[4]
-    H = para[5]
-    V = para[6]
-    D = para[7]
-    r = x[0:m]
-    num_m = int(x.size/2)
-    epsilon = x[num_m:]
-    sigmaX = hp.sigma(E,F,r)
-    sigmaX_loaf = hp.sigma_loaf(E,F,r,epsilon)
-    
-    sigmaY_Taylor = hp.sigmaY(sigmaX_loaf,D)
-    #Compute Unit Cost
-    Cprocess = hp.Cprocess(A,B,r)
-    Ccontrol = hp.Ccontrol(G,H,V,epsilon)
-    U = hp.U(Cprocess,Ccontrol,USY,miuY,sigmaY_Taylor,Sp)
-    
-    for i in range(0,m):  # Change this for loop to vectorization         
-        ## Gradient of r
-        dCprocessi_dri_v = hp.dCiprocess_dri(B[i],r[i])
-        dsigmai_loaf_dri_v = hp.dsigmai_loaf_dri(F[i],r[i],epsilon[i])
-        dsigmaY_dri_v = hp.dsigmaY_dri(D,sigmaX_loaf,i,dsigmai_loaf_dri_v)        
-        grad_r[i] = hp.dU_dri(USY,miuY,sigmaY_Taylor,Cprocess,Ccontrol,dsigmaY_dri_v,dCprocessi_dri_v,Sp)
-        ## Gradient of epsilon
-        dCi_depsiloni_v = hp.dCcontrol_depsiloni(H[i],V[i],epsilon[i],SYMMETRY,RECIPROCAL)
-        dsigmai_loaf_depsiloni_v = hp.dsigmai_loaf_depsiloni(epsilon[i], sigmaX[i])
-        dsigmaY_depsiloni_v = hp.dsigmaY_depsiloni(D,sigmaX_loaf,i,dsigmai_loaf_depsiloni_v)
-        grad_epsilon[i] = hp.dU_depsiloni(USY, miuY,sigmaY_Taylor,Cprocess,
-                                                   Ccontrol,dsigmaY_depsiloni_v,dCi_depsiloni_v,Sp)
-        
-    grad_combine = np.concatenate((grad_r,grad_epsilon),axis=0)
-    
-    if grad.size > 0:
-        grad[:] = grad_combine #Make sure to assign value using [:]
-    #print(U)
-    return U
+    # A = para[0]
+    # B = para[1]
+    # E = para[2]
+    # F = para[3]
+    # GL = para[4]
+    # HL = para[5]
+    # VL = para[6]
+    # GR = para[7]
+    # HR = para[8]
+    # VR = para[9]
+    # D = para[10]
 
-def obj_as(x,grad,para):
-    #retrieve r as the optimization variable x. (k will not be optimized, so just use const)
-    A = para[0]
-    B = para[1]
-    E = para[2]
-    F = para[3]
-    GL = para[4]
-    HL = para[5]
-    VL = para[6]
-    GR = para[7]
-    HR = para[8]
-    VR = para[9]
-    D = para[10]
+    A = para["A"]
+    B = para["B"]
+    E = para["E"]
+    F = para["F"]
+    GL = para["GL"]
+    HL = para["HL"]
+    VL = para["VL"]
+    GR = para["GR"]
+    HR = para["HR"]
+    VR = para["VR"]
+    D = para["D"]
+    grad_r = para["grad_r"]
+    grad_epsilon = para["grad_epsilon"]
+
+
     r = x[0:m]
     num_m = m
     epsilon = x[num_m:]
@@ -174,7 +119,6 @@ def obj_as(x,grad,para):
         
         ## Gradient of r
         dCprocessi_dri_v = hp.dCiprocess_dri(B[i],r[i])
-        dCprocessi_dri_v = hp.dCiprocess_dri(B[i],r[i])
         dsigmai_dr = hp.dsigmai_dri(F[i],r[i])
         dmiuy_dri_v = hp.dmiuY_dri(i,miuX,epsilonL_i,epsilonR_i,dsigmai_dr)
         dsigmai_loaf_dri_v = hp.dsigmai_loaf_dri_as(F[i],r[i],epsilonL_i,epsilonR_i)
@@ -183,7 +127,7 @@ def obj_as(x,grad,para):
         grad_r[i] = hp.dU_dri_as(Cprocess,Ccontrol,Sp,dCprocessi_dri_v, beta, dbeta_dri_v)
         
         ## Gradient of epsilon left
-        dCcontrol_depsiloni_L_v = hp.dCcontrol_depsiloni(HL[i],VL[i],epsilonL_i,SYMMETRY,RECIPROCAL)
+        dCcontrol_depsiloni_L_v = hp.dCcontrol_depsiloni(HL[i],VL[i],epsilonL_i,RECIPROCAL)
         dmiuy_depsiloni_L_v = hp.dmiuY_depsiloni(i,miuX,sigmaX[i],left=True)
         dsigmai_loaf_depsiloni_v = hp.dsigmai_loaf_depsiloni_as(epsilonL_i,epsilonR_i,sigmaX[i])
         dsigmaY_depsiloni_v = hp.dsigmaY_depsiloni(D,sigmaX_loaf,i,dsigmai_loaf_depsiloni_v)
@@ -191,7 +135,7 @@ def obj_as(x,grad,para):
         grad_epsilon[i] = hp.dU_depsiloni_as(Cprocess,Ccontrol,Sp,dCcontrol_depsiloni_L_v, beta, dbeta_depsiloni_L_v)
         
         ## Gradient of epsilon right
-        dCcontrol_depsiloni_R_v = hp.dCcontrol_depsiloni(HR[i],VR[i],epsilonR_i,SYMMETRY,RECIPROCAL)
+        dCcontrol_depsiloni_R_v = hp.dCcontrol_depsiloni(HR[i],VR[i],epsilonR_i,RECIPROCAL)
         dmiuy_depsiloni_R_v = hp.dmiuY_depsiloni(i,miuX,sigmaX[i],left=False)
         dsigmai_loaf_depsiloni_v = hp.dsigmai_loaf_depsiloni_as(epsilonL_i,epsilonR_i,sigmaX[i])
         dsigmaY_depsiloni_v = hp.dsigmaY_depsiloni(D,sigmaX_loaf,i,dsigmai_loaf_depsiloni_v)
@@ -204,38 +148,64 @@ def obj_as(x,grad,para):
     #print(U)
     return U
 
-def optimize(prnt,para):
-    #Unit cost of initial values
-    #sigmaX = hp.sigma(E,F,r)    
-    #sigmaY_Taylor = hp.sigmaY(sigmaX,D)
-    #cost = hp.C(A,B,r)
-    result = {}    
+def obj_jcp(x,grad,para):
+    A = para["A"]
+    B = para["B"]
+    E = para["E"]
+    F = para["F"]
+    GL = para["GL"]
+    HL = para["HL"]
+    VL = para["VL"]
+    GR = para["GR"]
+    HR = para["HR"]
+    VR = para["VR"]
+    D = para["D"]
+    control_cost = para["control_cost"]
+    grad_r = para["grad_r"]
+    # grad_epsilon = para["grad_epsilon"]
+
+
+    r = x[0:m]
+    # fix epsilon at 0. In the JCP method, the model does not consider epsilon.
+    epsilon_zero = np.array([0] * (2 * m))
+    sigmaX = hp.sigma(E,F,r)
+    sigmaX_loaf = hp.sigma_loaf_as(E,F,r,epsilon_zero,m)
+    miuX = hp.miu_x_as(X, epsilon_zero, sigmaX, m)
+    sigmaY_Taylor = hp.sigmaY(sigmaX_loaf,D)
+    #Compute Unit Cost
+    Cprocess = hp.Cprocess(A,B,r)
+
+    Ccontrol = np.zeros(m)
+    ## For a fair comparison, the control cost need to be added
+    if control_cost:
+        epsilon_fix = para['epsilon_fix']
+        epsilon = np.array([epsilon_fix] * (2 * m))
+        Ccontrol = hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon,m,RECIPROCAL)
+    ##beta is product pass rate
+    beta = hp.productPassRate(LSY,USY,miuY,sigmaY_Taylor)
+    U = hp.U_as(Cprocess,Ccontrol,Sp,beta)
     
-    opt = nlopt.opt(nlopt.LD_MMA, 2*m) # MMA (Method of Moving Asymptotes) and CCSA LD_MMA
-    #ubK = 10.0
-    ## the lower bound of r cannot be too small, otherwise, sigmaY is too small, this cause
-    ## computational issues when computing dbeta_dr
-    low_bnd = [2.0]*5+[smallvalue]*10
-    opt.set_lower_bounds(low_bnd)
-    #opt.set_upper_bounds([largevalue,largevalue,largevalue,5,5,5])
-    opt.set_min_objective(lambda x,grad: obj(x,grad,para))
-
+    for i in range(0,m):  # Change this for loop to vectorization         
+        epsilonL_i = 0
+        epsilonR_i = 0
         
-    opt.set_xtol_rel(1e-4)
-    x0 = np.concatenate((r,epsilon),axis = 0)
-    x = opt.optimize(x0)
-    #U_init = hp.U_scrap(cost,USY,miuY,sigmaY_Taylor,k,Sp,Sc)
-    minf = opt.last_optimum_value()
-    result['U'] = minf
-    result['r'] = x[0:m]
-    result['epsilon'] = x[m:]        
-    if prnt==True:              
-        print("optimum at ", x)
-        print("minimum value = ", minf)
-        print("result code = ", opt.last_optimize_result())    
-    return result
+        ## Gradient of r
+        dCprocessi_dri_v = hp.dCiprocess_dri(B[i],r[i])
+        dCprocessi_dri_v = hp.dCiprocess_dri(B[i],r[i])
+        dsigmai_dr = hp.dsigmai_dri(F[i],r[i])
+        dmiuy_dri_v = hp.dmiuY_dri(i,miuX,epsilonL_i,epsilonR_i,dsigmai_dr)
+        dsigmai_loaf_dri_v = hp.dsigmai_loaf_dri_as(F[i],r[i],epsilonL_i,epsilonR_i)
+        dsigmay_dri_v = hp.dsigmaY_dri(D,sigmaX_loaf,i,dsigmai_loaf_dri_v)
+        dbeta_dri_v = hp.dbeta_dri_as(LSY, USY, miuY, sigmaY_Taylor, dmiuy_dri_v, dsigmay_dri_v)
+        grad_r[i] = hp.dU_dri_as(Cprocess,Ccontrol,Sp,dCprocessi_dri_v, beta, dbeta_dri_v)
+    
+    if grad.size > 0:
+        grad[:] = grad_r #Make sure to assign value using [:]
+    #print(U)
+    return U
 
-def optimize_as(prnt,para):
+
+def optimize(prnt,para, r0, epsilon0, upper_bounds=False):
     result = {}    
     
     opt = nlopt.opt(nlopt.LD_MMA, 3*m) # MMA (Method of Moving Asymptotes) and CCSA LD_MMA
@@ -244,12 +214,15 @@ def optimize_as(prnt,para):
     ## computational issues when computing dbeta_dr
     low_bnd = [2.0]*5+[smallvalue]*10
     opt.set_lower_bounds(low_bnd)
-    #opt.set_upper_bounds([largevalue,largevalue,largevalue,5,5,5,5,5,5])
-    opt.set_min_objective(lambda x,grad: obj_as(x,grad,para))
+    if upper_bounds:
+        max_sigma = para["max_epsilon"]
+        ub = [largevalue]*m + [max_sigma] * (2 * m)
+        opt.set_upper_bounds(ub)
+    opt.set_min_objective(lambda x,grad: obj(x,grad,para))
 
         
     opt.set_xtol_rel(1e-4)
-    x0 = np.concatenate((r,epsilon),axis = 0)
+    x0 = np.concatenate((r0,epsilon0),axis = 0)
     x = opt.optimize(x0)
     #U_init = hp.U_scrap(cost,USY,miuY,sigmaY_Taylor,k,Sp,Sc)
     minf = opt.last_optimum_value()
@@ -263,38 +236,44 @@ def optimize_as(prnt,para):
         print("result code = ", opt.last_optimize_result())    
     return result
     
+def optimize_jcp(para, r0, prnt=False):
+    result = {}    
     
-    
+    opt = nlopt.opt(nlopt.LD_MMA, m) # MMA (Method of Moving Asymptotes) and CCSA LD_MMA
+
+    ## the lower bound of r cannot be too small, otherwise, sigmaY is too small, this cause
+    ## computational issues when computing dbeta_dr
+    low_bnd = [2.0] * m
+    opt.set_lower_bounds(low_bnd)
+    #opt.set_upper_bounds([largevalue,largevalue,largevalue])
+    opt.set_min_objective(lambda x,grad: obj_jcp(x,grad,para))
+
+        
+    opt.set_xtol_rel(1e-4)
+    x0 = r0[:]
+    x = opt.optimize(x0)
+    minf = opt.last_optimum_value()
+    result['U'] = minf
+    result['r'] = x[0:m]
+
+    if prnt==True:              
+        print("optimum at ", x)
+        print("minimum value = ", minf)
+        print("result code = ", opt.last_optimize_result())    
+    return result
+
+
+
 def casestudy_U():
-    para = np.array([A,B,E,F,G,H,V,D])
+    #para = np.array([A,B,E,F,GL,HL,VL,GR,HR,VR,D])
+    para = {"A":A,"B":B,"E":E,"F":F,"GL":GL,"HL":HL,"VL":VL,"GR":GR,"HR":HR,"VR":VR,"D":D}
+    para["control_cost"] = True
+    para["grad_r"] = np.zeros(m)
+    para["grad_epsilon"] = np.zeros(2*m)
     prnt=True
-    result = optimize(prnt,para)
-    U_equation = result['U']
-    r_opt = result['r']
-    epsilon_opt = result['epsilon']
-    #sigma_opt = hp.sigma(E,F,r_opt)
-    # M = hp.estimateM(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb)
-    M,U_simulation,Y = hp.U_simulation(r_opt,epsilon_opt,para,X,USY,miuY,Sp,Na,Nb,m,SYMMETRY,CLUTCH,RECIPROCAL)
-    hp.compare_SigmaY(Y,r_opt,epsilon_opt,D,E,F,SYMMETRY, m)
-
-    print('U Equation: ', U_equation)
-    print('U Simulation: ', U_simulation)
-    print("# Satisfactory product",M)
-    print('error: ', (U_equation-U_simulation)/U_simulation*100 ,'%')
-    # satisfactionrate = hp.satisfactionrate_component_product(miu,E,F,r_opt,k,NSample,USY,miuY,scenario)
-    # print('beta: ', satisfactionrate['beta'])
-    # print('sigmaY: ', hp.sigmaY(sigma_opt,D,scenario,k_opt))
-    # print('opt cost:', hp.C(A,B,r_opt))
-    # print('N: ',N)
-    # print('M: ', M)
-    # print('Gama', satisfactionrate['gammas'])
-    hp.plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,SYMMETRY,CLUTCH)
-    return (M,U_simulation,Y,result)
-
-def casestudy_U_as():
-    para = np.array([A,B,E,F,GL,HL,VL,GR,HR,VR,D])
-    prnt=True
-    result = optimize_as(prnt,para)
+    epsilon0 = np.array([1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5])
+    r0 = np.ones(5) * 10.0
+    result = optimize(prnt,para, r0, epsilon0)
     U_equation = result['U']
     r_opt = result['r']
     epsilon_opt_L = result['epsilon_L']
@@ -306,15 +285,16 @@ def casestudy_U_as():
 
     # M_equation = hp.M_equation(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb)
 
-    M_simulation,U_simulation,Y = hp.U_simulation(r_opt,epsilon_opt,para,X,USY,miuY,Sp,Na,Nb,m,SYMMETRY,CLUTCH,RECIPROCAL)
-    hp.compare_SigmaY(Y,r_opt,epsilon_opt,D,E,F,SYMMETRY,m)
+    M_simulation,U_simulation,Y = hp.U_simulation(r_opt,epsilon_opt,para,X,USY,miuY,Sp,Na,Nb,m,CLUTCH,RECIPROCAL)
+    hp.compare_SigmaY(Y,r_opt,epsilon_opt,D,E,F,m)
 
     print('U Equation: ', U_equation)
     print('U Simulation: ', U_simulation)
     print('error of U: ', (U_equation-U_simulation)/U_simulation*100 ,'%')
 
     sigma_opt = hp.sigma(E,F,r_opt)
-    sigma_Y_equation = hp.sigmaY(sigma_opt, D)
+    print(f"Optimal sigma: {sigma_opt}")
+    # sigma_Y_equation = hp.sigmaY(sigma_opt, D)
 
     print("# Satisfactory product (simulation)", M_simulation)
     print(f"Pass rate beta (equation): {beta_equation}")
@@ -325,12 +305,179 @@ def casestudy_U_as():
     print('Process cost:', hp.Cprocess(A,B,r_opt))
     print('Maintenance cost:', hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon_opt,m,RECIPROCAL))
 
-    #hp.plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,SYMMETRY,CLUTCH)
-    hp.plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,SYMMETRY,CLUTCH)
+    hp.plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,CLUTCH)
     return (M,U_simulation,Y,result)
 
+
+def casestudy_U_jcp(max_epsilon,control_cost=True):
+    """
+    The old method proposed in JCLP
+    Equation: fix ε at 0 and optimize r only. 
+    Simulation: let the mean shift with the given epsilon.  
+    """
+    # para = np.array([A,B,E,F,GL,HL,VL,GR,HR,VR,D])
+    para = {"A":A,"B":B,"E":E,"F":F,"GL":GL,"HL":HL,"VL":VL,"GR":GR,"HR":HR,"VR":VR,"D":D}
+    para["control_cost"] = control_cost
+    para["epsilon_fix"] = max_epsilon
+    para["grad_r"] = np.zeros(m)
+    r0 = np.ones(5) * 10.0
+    result = optimize_jcp(para,r0)
+    U_eq = result['U']
+    r_opt = result['r']
+    sigma_opt = hp.sigma(E,F,r_opt)
+    sigmaY_eq = hp.sigmaY(sigma_opt, D)
+
+
+    epsilon_fixed = np.array([max_epsilon] * (2 * m))
+
+    _, U_simu, Y = hp.U_simulation(r_opt,epsilon_fixed,para,X,USY,miuY,Sp,Na,Nb,m,CLUTCH,RECIPROCAL)
+    sigmaY_simu = np.std(Y)
+
+    return U_eq, U_simu, sigmaY_eq, sigmaY_simu
+
+def casestudy_U_this(max_epsilon, control_cost=True):
+    """
+    The method proposed in this paper
+    Optimize r and epsilon, with the upper bound of epsilon being max_epsilon
+    """
+    para = {"A":A,"B":B,"E":E,"F":F,"GL":GL,"HL":HL,"VL":VL,"GR":GR,"HR":HR,"VR":VR,"D":D}
+    para["control_cost"] = control_cost
+    para["max_epsilon"] = max_epsilon
+    para["grad_r"] = np.zeros(m)
+    para["grad_epsilon"] = np.zeros(2*m)
+    epsilon0 = np.array([max_epsilon/2]*(2*m))
+    r0 = np.ones(5) * 10.0
+    prnt=True
+    result = optimize(prnt,para,r0, epsilon0, upper_bounds=True)
+    U_equation = result['U']
+    r_opt = result['r']
+    epsilon_opt_L = result['epsilon_L']
+    epsilon_opt_R = result['epsilon_R']
+    epsilon_opt = np.concatenate((epsilon_opt_L,epsilon_opt_R),axis=0)
+    
+
+    beta_equation = hp.beta_equation(E,F,r_opt,epsilon_opt,m,LSY,USY, miuY,D)
+
+    # M_equation = hp.M_equation(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb)
+
+    M_simulation,U_simulation,Y = hp.U_simulation(r_opt,epsilon_opt,para,X,USY,miuY,Sp,Na,Nb,m,CLUTCH,RECIPROCAL)
+    # sigmaY_simu = np.std(Y)
+    sigmaY_eq, sigmaY_simu = hp.compare_SigmaY(Y,r_opt,epsilon_opt,D,E,F,m)
+
+    print('U Equation: ', U_equation)
+    print('U Simulation: ', U_simulation)
+    print('error of U: ', (U_equation-U_simulation)/U_simulation*100 ,'%')
+
+    sigma_opt = hp.sigma(E,F,r_opt)
+    print(f"Optimal sigma: {sigma_opt}")
+    # sigma_Y_equation = hp.sigmaY(sigma_opt, D)
+
+    print("# Satisfactory product (simulation)", M_simulation)
+    print(f"Pass rate beta (equation): {beta_equation}")
+    print(f"Error: of pass rate: {(beta_equation - M_simulation/(Na*Nb))/(M_simulation/(Na*Nb)) * 100} %")
+
+
+
+    print('Process cost:', hp.Cprocess(A,B,r_opt))
+    print('Maintenance cost:', hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon_opt,m,RECIPROCAL))
+
+
+    return U_equation, U_simulation, sigmaY_eq, sigmaY_simu
+
+def plot_compare_error(x, y1, y2, x_label, y1_label, y2_label, label1, label2, \
+    color1='green', color2='blue', marker1='+', marker2='x', fname="comparison.tif"):
+    fig, ax1 = plt.subplots()
+
+    ax2 = ax1.twinx()
+    lns1 = ax1.plot(x, y1, color=color1,linestyle='solid', marker=marker1, label=label1)
+    lns2 = ax2.plot(x, y2, color=color2,linestyle='solid', marker=marker2, label=label2)
+
+    ax1.set_xlabel(x_label)
+    ax1.set_ylabel(y1_label, color=color1)
+    ax2.set_ylabel(y2_label, color=color2)
+    lns = lns1 + lns2
+    labs = [l.get_label() for l in lns]
+    ax1.legend(lns, labs,loc="center left")
+    ax1.grid(True)
+    fig.savefig(fname,dpi=300)
+    plt.show()
+
+def plot_compare_U(x, U1, U2, x_label, y_label,label1, label2,\
+    color1='red', color2='cyan', marker1='o', marker2='s',fname="compare_U.tif"):
+    fig, ax1 = plt.subplots()
+
+    ax1.plot(x, U1, color=color1, linestyle='solid', marker=marker1,label=label1)
+    ax1.plot(x, U2, color=color2, linestyle='solid', marker=marker2,label=label2)
+
+    ax1.set_xlabel(x_label)
+    ax1.set_ylabel(y_label)
+    ax1.legend()
+    ax1.grid(True)
+    fig.savefig(fname,dpi=300)
+    plt.show()
+
+def comparison(min_epsilon=0, max_epsilon=3, count=10):
+    """
+    Compare the proposed method to the method proposed in JCP paper.
+    """
+    epsilons = np.linspace(min_epsilon, max_epsilon, count, endpoint=True)
+    rst_U_eq_jcp = np.zeros(count)
+    rst_U_simu_jcp = np.zeros(count)
+    rst_sigmaY_eq_jcp = np.zeros(count)
+    rst_sigmaY_simu_jcp = np.zeros(count)
+    rst_U_eq = np.zeros(count)
+    rst_U_simu = np.zeros(count)
+    rst_sigmaY_eq = np.zeros(count)
+    rst_sigmaY_simu = np.zeros(count)
+    for i, epsilon in enumerate(epsilons):
+        ## get the U, and sigmaY from both equation and simulation of the JCP method
+        U_eq_jcp,U_simu_jcp, sigmaY_eq_jcp, sigmaY_simu_jcp = \
+            casestudy_U_jcp(epsilon, control_cost=True)
+        rst_U_eq_jcp[i] = U_eq_jcp
+        rst_U_simu_jcp[i] = U_simu_jcp
+        rst_sigmaY_eq_jcp[i] = sigmaY_eq_jcp
+        rst_sigmaY_simu_jcp[i] = sigmaY_simu_jcp
+        U_eq, U_simu, sigmaY_eq, sigmaY_simu = \
+            casestudy_U_this(epsilon, control_cost=True)
+        rst_U_eq[i] = U_eq
+        rst_U_simu[i] = U_simu
+        rst_sigmaY_eq[i] = sigmaY_eq
+        rst_sigmaY_simu[i] = sigmaY_simu
+
+    error_sigY_eq_jcp = (rst_sigmaY_eq_jcp - rst_sigmaY_simu_jcp) / rst_sigmaY_simu_jcp * 100
+    error_sigY_eq_jcp = np.abs(error_sigY_eq_jcp)
+    error_sigY_eq = (rst_sigmaY_eq - rst_sigmaY_simu) / rst_sigmaY_simu * 100
+    error_sigY_eq = np.abs(error_sigY_eq)
+    print(f"Error of U by JCP: {error_sigY_eq_jcp}%")
+    print(f"Error of U by this research: {error_sigY_eq}%")
+    
+    plot_compare_error(epsilons, error_sigY_eq, error_sigY_eq_jcp, r'$\it{\tau}$', \
+        y1_label=r'Relative error (%) of $\it{\sigma}_Y$ (this paper)', \
+        y2_label=r'Relative error (%) of $\it{\sigma}_Y$ (Wang et al. 2021)',\
+        label1 = "This paper",\
+        label2 = "Wang et al. 2021",\
+        marker1='^', marker2='p',\
+        fname="compare_error_sigY.tiff")
+
+    error_U_eq_jcp = (rst_U_eq_jcp - rst_U_simu_jcp) / rst_U_simu_jcp * 100
+    error_U_eq_jcp = np.abs(error_U_eq_jcp)
+    error_U_eq = (rst_U_eq - rst_U_simu) / rst_U_simu * 100
+    error_U_eq = np.abs(error_U_eq)
+    print(f"Error of U by JCP: {error_U_eq_jcp}%")
+    print(f"Error of U by this research: {error_U_eq}%")
+    plot_compare_error(epsilons, error_U_eq, error_U_eq_jcp, x_label=r'$\it{\tau}$', \
+        y1_label=r'Relative error (%) of $U$ (this paper)', \
+        y2_label=r'Relative error (%) of $U$ (Wang et al. 2021)',\
+        label1 = "This paper",\
+        label2 = "Wang et al. 2021",\
+        marker1='+', marker2='x',\
+        fname="compare_error_U.tiff")
+    plot_compare_U(epsilons, rst_U_simu, rst_U_simu_jcp, r'$\it{\tau}$',\
+         y_label="$U$",label1="This paper",label2="Wang et al. 2021")
+
+
+
 if __name__ == "__main__":
-    if SYMMETRY:
-        M,U,Y,result = casestudy_U()
-    else:
-        M,U,Y,result = casestudy_U_as()
+    M,U,Y,result = casestudy_U()
+    print("################## Experiment 1 ###################")
+    comparison()

@@ -3,6 +3,7 @@ resources/
 
 # ignore plots
 *.tif
+*.tiff
 *.png
 
 # Byte-compiled / optimized / DLL files
