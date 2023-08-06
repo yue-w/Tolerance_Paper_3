@@ -26,7 +26,6 @@ def Cprocess(A,B,r):
 def Ccontrol(G,H,V,epsilon):
     return np.add(G,np.divide(H,np.add(epsilon,V)))
 
-##Cost-epsilon function. Asymetrical. Reciprocal form.
 def Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon,m,reciprocal=True):
     if reciprocal:
         epsilon_L_vec = epsilon[0:m]
@@ -38,16 +37,22 @@ def Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon,m,reciprocal=True):
         v1 = GL + HL * np.exp(-epsilon_L_vec * VL)
         v2 = GR + HR * np.exp(-epsilon_R_vec * VR)
         return v1 + v2
-    
-# ##Cost-epsilon function. Asymetrical. Expontential form.
-# def Ccontrol_as_exp(GL,HL,VL,GR,HR,VR,epsilon,m):
-#     epsilon_L_vec = epsilon[0:m]
-#     epsilon_R_vec = epsilon[m:]
-#     v1 = GL + HL * np.exp(-epsilon_L_vec * VL)
-#     v2 = GR + HR * np.exp(-epsilon_R_vec * VR)
-#     return v1 + v2
 
+def Ccontrol_as_single_side(G,H,V,epsilon,reciprocal=True):
+    if reciprocal:
+        pass
+    else:
+        v = G + H * np.exp(-epsilon * V)
+        return v
 
+def assem_fun(x):
+    """
+    The design function
+    y = f(x)
+    """
+    x1, x2, x3, x4, x5 = x
+    y = x2 + np.sqrt(x4*x4-0.5*x3*x3-np.power(x1-x5-np.sqrt(2)/2*x3,2))
+    return y
 def assembly(x,clutch=True):
     if clutch:
         x1=np.copy(x[0])
@@ -209,13 +214,19 @@ def sigma_loaf(E,F,r, epsilon):
     sigma_new = np.multiply(tem,variance)
     return np.sqrt(sigma_new)
 
-def sigma_loaf_as(E,F,r,epsilon,m):
-    sigma = np.add(E,np.multiply(F,np.power(r,2)))
-    variance = np.power(sigma,2)
-    epsilon_L_vec = epsilon[0:m]
-    epsilon_R_vec = epsilon[m:]
-    tem = 1 + np.power(epsilon_L_vec+epsilon_R_vec,2)/12
-    sigma_new = np.multiply(tem,variance)
+def sigma_loaf_as(E,F,r,epsilon,m,double_side=True):
+    if double_side:
+        sigma = np.add(E,np.multiply(F,np.power(r,2)))
+        variance = np.power(sigma,2)
+        epsilon_L_vec = epsilon[0:m]
+        epsilon_R_vec = epsilon[m:]
+        tem = 1 + np.power(epsilon_L_vec+epsilon_R_vec,2)/12
+        sigma_new = np.multiply(tem,variance)
+    else:
+        sigma = np.add(E,np.multiply(F,np.power(r,2)))
+        variance = np.power(sigma,2)
+        tem = 1 + np.power(epsilon,2)/12
+        sigma_new = np.multiply(tem,variance)
     return np.sqrt(sigma_new)
 
 def sigma(E,F,r):
@@ -326,20 +337,20 @@ def dU_depsiloni_as(Cprocess,Ccontrol,Sp,dCcontroli_depsiloni_v, beta, dbeta_dep
     return value
 
     
-def estimateM(X,E,F,r_opt,epsilon_opt,USY,miuY,Na,Nb,m,clutch=True):
-    x = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X)
+def estimateM(X,E,F,r_opt,epsilon_opt,USY,Y0,Na,Nb,m,clutch=True,double_side=True):
+    x = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,double_side)
     Y = assembly(x,clutch)
-    Y_inspect = Y[np.logical_and(Y>=2*miuY-USY,Y<=USY)]
+    Y_inspect = Y[np.logical_and(Y>=2*Y0-USY,Y<=USY)]
     M = len(Y_inspect)
     return (M, Y, Y_inspect)
 
-def beta_equation(E,F,r,epsilon,m,LSY,USY, miuY,D):
+def beta_equation(E,F,r,epsilon,m,LSY,USY, miuY,D,double_side=True):
     """
     Estimate satisfaction rate of product by replacing optimal
     values of r and epsilon into equation (13)
     """
 
-    sigmaX_loaf = sigma_loaf_as(E,F,r,epsilon,m)
+    sigmaX_loaf = sigma_loaf_as(E,F,r,epsilon,m,double_side)
     sigmaY_Taylor = sigmaY(sigmaX_loaf,D)
     beta = productPassRate(LSY,USY,miuY,sigmaY_Taylor)
     return beta
@@ -381,8 +392,36 @@ def U_simulation(r,epsilon,para,X,USY,miuY,Sp,Na,Nb,m, clutch=True,reciprocal=Tr
 
     return (M,U,Y)
 
-def compare_SigmaY(Y_samples,r,epsilon,D,E,F,m):
-    sigmaX_loaf = sigma_loaf_as(E,F,r, epsilon,m)
+def U_simulation_single_side(r,epsilon,para,X,USY,miuY,Sp,Na,Nb,m, clutch=True,reciprocal=True):
+
+    A = para["A"]
+    B = para["B"]
+    E = para["E"]
+    F = para["F"]
+    G = para["G"]
+    H = para["H"]
+    V = para["V"]
+    # D = para["D"]
+    control_cost = para["control_cost"]
+
+
+    Cprocess_v = Cprocess(A,B,r)
+    
+    Ccontrol_v = np.zeros(m)
+    if control_cost:    
+        Ccontrol_v = Ccontrol_as_single_side(G,H,V,epsilon,reciprocal)
+    NSample = Na*Nb
+    M, Y, _ = estimateM(X,E,F,r,epsilon,USY,miuY,Na,Nb,m,clutch,double_side=False)
+    Ct = np.sum(np.multiply(NSample,Cprocess_v+Ccontrol_v)) + Sp*(np.abs(NSample-M))
+    ## debug
+    # Ct = np.sum(np.multiply(NSample,Cprocess_v)) + Sp*(np.abs(NSample-M))
+
+    U = Ct/M
+
+    return (M,U,Y)
+
+def compare_SigmaY(Y_samples,r,epsilon,D,E,F,m,double_side=True):
+    sigmaX_loaf = sigma_loaf_as(E,F,r, epsilon,m,double_side)
     sigmaY_equation = sigmaY(sigmaX_loaf,D)
     _,sigmaY_simulation = stat_parameters_simulation(Y_samples)
     print("sigmaY simulation = ", sigmaY_simulation)
@@ -391,21 +430,37 @@ def compare_SigmaY(Y_samples,r,epsilon,D,E,F,m):
     print(f'error = {error * 100} %')
     return sigmaY_equation, sigmaY_simulation
     
-def generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X):
-    sigmaX = sigma(E,F,r_opt)
-    ## Generate normal distribution, the mean of which deviate.
-    x_vec = np.zeros((m,Na,Nb))
-    for i in range(m): ## For each type of component
-        for j in range(Na): ## The mean deviates Na times
-            left = epsilon_opt[i]*sigmaX[i]
-            right = epsilon_opt[i+m]*sigmaX[i]
-            miu_low = X[i] - left
-            miu_high = X[i] + right
-            miu = np.random.uniform(miu_low,miu_high,1)
-            x_vec[i][j][:] = np.random.normal(miu,sigmaX[i],Nb)
-    
-    x_vec = x_vec.reshape(m,-1)
-    return x_vec
+def generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X, double_side=True):
+    if double_side:
+        sigmaX = sigma(E,F,r_opt)
+        ## Generate normal distribution, the mean of which deviate.
+        x_vec = np.zeros((m,Na,Nb))
+        for i in range(m): ## For each type of component
+            for j in range(Na): ## The mean deviates Na times
+                left = epsilon_opt[i]*sigmaX[i]
+                right = epsilon_opt[i+m]*sigmaX[i]
+                miu_low = X[i] - left
+                miu_high = X[i] + right
+                miu = np.random.uniform(miu_low,miu_high,1)
+                x_vec[i][j][:] = np.random.normal(miu,sigmaX[i],Nb)
+        
+        x_vec = x_vec.reshape(m,-1)
+        return x_vec
+    else:
+        sigmaX = sigma(E,F,r_opt)
+        ## Generate normal distribution, the mean of which deviate.
+        x_vec = np.zeros((m,Na,Nb))
+        for i in range(m): ## For each type of component
+            for j in range(Na): ## The mean deviates Na times
+                left = 0
+                right = epsilon_opt[i]*sigmaX[i]
+                miu_low = X[i] - left
+                miu_high = X[i] + right
+                miu = np.random.uniform(miu_low,miu_high,1)
+                x_vec[i][j][:] = np.random.normal(miu,sigmaX[i],Nb)
+        
+        x_vec = x_vec.reshape(m,-1)
+        return x_vec
 
 def plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,clutch=True):
     x_sample = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X)
@@ -425,8 +480,8 @@ def plot(r_opt, epsilon_opt, E,F,m,Na,Nb,X,clutch=True):
     fig.savefig(fname='hist_component_product.tif',dpi=300)
     plt.show()
 
-def plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,clutch=True):
-    x_sample = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X)
+def plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,clutch=True,double_side=True):
+    x_sample = generate_component(E,F,r_opt,epsilon_opt,m,Na,Nb,X,double_side)
     y_sample = assembly(x_sample,clutch)
     width = 12
     height = 21
@@ -467,6 +522,14 @@ def dbeta_dri_as(LS, US, miuY, sigma_y, dmiuy_dri_v, dsigmay_dri_v):
     tem2 = dphi_dz_q2 * (-dmiuy_dri_v*sigma_y-(LS-miuY)*dsigmay_dri_v)/(sigma_y*sigma_y)
     return tem1 - tem2
 
+def get_D(miuX):
+    D1 = dy_dx1_crank(*miuX)
+    D2 = dy_dx2_crank(*miuX)
+    D3 = dy_dx3_crank(*miuX)
+    D4 = dy_dx4_crank(*miuX)
+    D5 = dy_dx5_crank(*miuX)
+    D = np.array([D1,D2,D3,D4,D5])
+    return D
 def dbeta_depsiloni_as(LS, US, miuY, sigma_y, dmiuy_depsiloni_v, dsigmay_depsiloni_v):
     q1 = (US-miuY)/sigma_y
     q2 = (LS-miuY)/sigma_y
@@ -501,10 +564,13 @@ def df_dmiu_i(miuX,i):
             return dy_dx5_crank(miuX[0],miuX[1],miuX[2],miuX[3],miuX[4])
         else:
             return None
-def miu_x_as(X, epsilon, sigmaX, m):
-    epsilon_L_vec = epsilon[0:m]
-    epsilon_R_vec = epsilon[m:]
-    return X + np.multiply((epsilon_R_vec-epsilon_L_vec)/2,sigmaX)
+def miu_x_as(X, epsilon, sigmaX, m, double_side=True):
+    if double_side:
+        epsilon_L_vec = epsilon[0:m]
+        epsilon_R_vec = epsilon[m:]
+        return X + np.multiply((epsilon_R_vec-epsilon_L_vec)/2,sigmaX)
+    else:
+        return X + np.multiply(epsilon/2,sigmaX)
 
 def dmiuY_dri(i,miuX,epsilonLi,epsilonRi,dsigmai_dr):
     df_dmiu_i_v = df_dmiu_i(miuX,i)
