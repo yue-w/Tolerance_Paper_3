@@ -111,3 +111,7 @@ num_bins = 5
 n, bins, patches = plt.hist(x, num_bins, edgecolor="yellow", facecolor='green', alpha=0.5)
 plt.show()
 # %%
+x = [1,2,3,4]
+x1, x2, x3, x4 = x
+
+# %%

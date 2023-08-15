@@ -17,19 +17,17 @@ m = 5
 RECIPROCAL = False
 small_number = 1e-7
 
-A = np.array([0.98, 0.52, 1.23, 0.98, 0.52])
-B = np.array([2.136, 1.8, 2.568,2.136, 1.8])
+A = np.array([2.4, 2.6, 6.15, 4.9,7.0 ])
+B = np.array([1.91, 1.8, 3.2, 2.14, 3.8])
 
-E = np.array([0.31, 0.23, 0.12, 0.15, 0.1])
-F = np.array([0.01023333, 0.00603333 ,0.00713333, 0.01183333, 0.00733333])
+E = np.array([0.11, 0.23, 0.12, 0.15, 0.1]) 
+F = np.array([0.0041, 0.0060 ,0.0071, 0.0128, 0.0073])
 
 ## Control cost
-GL = np.array([0.98, 0.52, 1.23, 0.98, 0.52])
-HL = np.array([2.136, 1.8, 2.568, 2.136, 1.8])
-VL = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
-GR = np.array([0.98, 0.52, 1.23, 0.98, 0.52])
-HR = np.array([2.136, 1.8, 2.568, 2.136, 1.8])
-VR = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+G = np.array([0.076, 0.104, 0.146, 0.136, 0.172]) * 1.5
+H = np.array([0.10272, 0.36, 0.5136 , 0.4272 , 0.6]) * 0.5
+V = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+
 
 #Scrap cost of a product
 Sp = np.sum(A)/10.0
@@ -47,21 +45,20 @@ D3 = hp.dy_dx3_crank(X[0],X[1],X[2],X[3],X[4])
 D4 = hp.dy_dx4_crank(X[0],X[1],X[2],X[3],X[4])
 D5 = hp.dy_dx5_crank(X[0],X[1],X[2],X[3],X[4])
 
-D = np.array([D1,D2,D3,D4,D5])
 
-#r = 10.0 * np.random.rand(5)
-#epsilon = 3.0 * np.random.rand(10)
-r = 10.0 * np.ones(5)
-epsilon = 3.0 * np.random.uniform(0.8, 1.1, 10)
+
+# r = 10.0 * np.ones(m)
+# epsilon = 3.0 * np.random.uniform(0.8, 1.1, m)
+
+epsilon = np.array([1.5, 1.5, 1.5, 1.5, 1.5])
+r = np.ones(5) * 10.0
     
 sigmaX = hp.sigma(E,F,r)
-sigmaX_loaf = hp.sigma_loaf_as(E,F,r,epsilon,m)
+sigmaX_loaf = hp.sigma_loaf_as(E,F,r,epsilon,m, False)
 
 
 Cprocess = hp.Cprocess(A,B,r)
-Ccontrol = hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsilon,m,RECIPROCAL)
-
-sigmaY_Taylor = hp.sigmaY(sigmaX_loaf,D)
+Ccontrol = hp.Ccontrol_as_single_side(G,H,V,epsilon,RECIPROCAL)
 
 grad_numerical_r = np.zeros(m)
 grad_equation_r = np.zeros(m)
@@ -69,10 +66,13 @@ grad_numerical_epsilon_L = np.zeros(m)
 grad_equation_epsilon_L = np.zeros(m)
 grad_numerical_epsilon_R = np.zeros(m)
 grad_equation_epsilon_R = np.zeros(m)
-miuX = hp.miu_x_as(X, epsilon, sigmaX, m)
 
-# Nominal value of Y is 7.0124, but in this asymmetrical case, miuY should be computed
-## by the mean of component using the design function.
+miuX = hp.miu_x_as(X, epsilon, sigmaX, m, False)
+
+D = hp.get_D(miuX)
+
+sigmaY_Taylor = hp.sigmaY(sigmaX_loaf,D)
+
 miuY = hp.f_crank(miuX)
 ##Upper specification limit
 Y0 = 992.9096
@@ -87,10 +87,10 @@ for i in range(0,m):
     ri_minus_small_number[i] -=  small_number
     sigmaX_plus = hp.sigma(E,F,ri_add_small_number)  
     sigmaX_minus = hp.sigma(E,F,ri_minus_small_number)  
-    sigmaX_loaf_plus = hp.sigma_loaf_as(E,F,ri_add_small_number, epsilon, m)  
-    sigmaX_loaf_minus = hp.sigma_loaf_as(E,F,ri_minus_small_number, epsilon, m)  
-    miuX_plus = hp.miu_x_as(X, epsilon, sigmaX_plus, m)
-    miuX_minus = hp.miu_x_as(X, epsilon, sigmaX_minus, m)
+    sigmaX_loaf_plus = hp.sigma_loaf_as(E,F,ri_add_small_number, epsilon, m, False)  
+    sigmaX_loaf_minus = hp.sigma_loaf_as(E,F,ri_minus_small_number, epsilon, m, False)  
+    miuX_plus = hp.miu_x_as(X, epsilon, sigmaX_plus, m, False)
+    miuX_minus = hp.miu_x_as(X, epsilon, sigmaX_minus, m, False)
     miuY_plus = hp.f_crank(miuX_plus)
     miuY_minus = hp.f_crank(miuX_minus)
     sigmaY_Taylor_plus = hp.sigmaY(sigmaX_loaf_plus,D)
@@ -104,9 +104,10 @@ for i in range(0,m):
     grad_numerical_r[i] = (hp.U_as(Cprocess_plus,Ccontrol,Sp,beta_plus) -
                   hp.U_as(Cprocess_minus,Ccontrol,Sp,beta_minus))/(2*small_number)
     print('Numerical: '+'dr'+str(i),'=',grad_numerical_r[i])
+
     #gradient computed by equation
-    epsilonL_i = epsilon[i]
-    epsilonR_i = epsilon[i+m]
+    epsilonL_i = 0
+    epsilonR_i = epsilon[i]
     dCprocessi_dri_v = hp.dCiprocess_dri(B[i],r[i])
     dsigmai_dr = hp.dsigmai_dri(F[i],r[i])
     dmiuy_dri_v = hp.dmiuY_dri(i,miuX,epsilonL_i,epsilonR_i,dsigmai_dr)
@@ -119,50 +120,50 @@ for i in range(0,m):
     
 
     ## Inspect epsilon
-    ## Gradient computed by mumeracal estimation: left
-    epsiloni_add_small_number_L = np.copy(epsilon[:])
-    epsiloni_minus_small_number_L = np.copy(epsilon[:])
-    epsiloni_add_small_number_L[i] +=  small_number
-    epsiloni_minus_small_number_L[i] -=  small_number
-    Ccontrol_plus_L = hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsiloni_add_small_number_L,m,RECIPROCAL)
-    Ccontrol_minus_L = hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsiloni_minus_small_number_L,m,RECIPROCAL)
-    sigmaX_loaf_plus_L = hp.sigma_loaf_as(E,F,r, epsiloni_add_small_number_L,m)
-    sigmaX_loaf_minus_L = hp.sigma_loaf_as(E,F,r, epsiloni_minus_small_number_L,m)
-    miuX_plus_L = hp.miu_x_as(X, epsiloni_add_small_number_L, sigmaX, m)
-    miuX_minus_L = hp.miu_x_as(X, epsiloni_minus_small_number_L, sigmaX, m)
-    miuY_plus_L = hp.f_crank(miuX_plus_L)
-    miuY_minus_L = hp.f_crank(miuX_minus_L)
-    sigmaY_Taylor_plus_L = hp.sigmaY(sigmaX_loaf_plus_L,D)
-    sigmaY_Taylor_minus_L = hp.sigmaY(sigmaX_loaf_minus_L,D)
-    beta_plus_L = hp.productPassRate(LSY,USY,miuY_plus_L,sigmaY_Taylor_plus_L)
-    beta_minus_L = hp.productPassRate(LSY,USY,miuY_minus_L,sigmaY_Taylor_minus_L)
-    grad_numerical_epsilon_L[i] = (hp.U_as(Cprocess,Ccontrol_plus_L,Sp,beta_plus_L) -
-                  hp.U_as(Cprocess,Ccontrol_minus_L,Sp,beta_minus_L))/(2*small_number)
-    print('Numerical: '+'depsilon (left)'+str(i),'=',grad_numerical_epsilon_L[i])
+    # ## Gradient computed by mumeracal estimation: left
+    # epsiloni_add_small_number_L = np.copy(epsilon[:])
+    # epsiloni_minus_small_number_L = np.copy(epsilon[:])
+    # epsiloni_add_small_number_L[i] +=  small_number
+    # epsiloni_minus_small_number_L[i] -=  small_number
+    # Ccontrol_plus_L = hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsiloni_add_small_number_L,m,RECIPROCAL)
+    # Ccontrol_minus_L = hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsiloni_minus_small_number_L,m,RECIPROCAL)
+    # sigmaX_loaf_plus_L = hp.sigma_loaf_as(E,F,r, epsiloni_add_small_number_L,m)
+    # sigmaX_loaf_minus_L = hp.sigma_loaf_as(E,F,r, epsiloni_minus_small_number_L,m)
+    # miuX_plus_L = hp.miu_x_as(X, epsiloni_add_small_number_L, sigmaX, m)
+    # miuX_minus_L = hp.miu_x_as(X, epsiloni_minus_small_number_L, sigmaX, m)
+    # miuY_plus_L = hp.f_crank(miuX_plus_L)
+    # miuY_minus_L = hp.f_crank(miuX_minus_L)
+    # sigmaY_Taylor_plus_L = hp.sigmaY(sigmaX_loaf_plus_L,D)
+    # sigmaY_Taylor_minus_L = hp.sigmaY(sigmaX_loaf_minus_L,D)
+    # beta_plus_L = hp.productPassRate(LSY,USY,miuY_plus_L,sigmaY_Taylor_plus_L)
+    # beta_minus_L = hp.productPassRate(LSY,USY,miuY_minus_L,sigmaY_Taylor_minus_L)
+    # grad_numerical_epsilon_L[i] = (hp.U_as(Cprocess,Ccontrol_plus_L,Sp,beta_plus_L) -
+    #               hp.U_as(Cprocess,Ccontrol_minus_L,Sp,beta_minus_L))/(2*small_number)
+    # print('Numerical: '+'depsilon (left)'+str(i),'=',grad_numerical_epsilon_L[i])
 
-    ## Gradient by equation: left
-    epsilonL_i = epsilon[i]
-    epsilonR_i = epsilon[i+m]
-    dCcontrol_depsiloni_L_v = hp.dCcontrol_depsiloni(HL[i],VL[i],epsilonL_i,reciprocal=RECIPROCAL)
-    dmiuy_depsiloni_L_v = hp.dmiuY_depsiloni(i,miuX,sigmaX[i],left=True)
-    dsigmai_loaf_depsiloni_v = hp.dsigmai_loaf_depsiloni_as(epsilonL_i,epsilonR_i,sigmaX[i])
-    beta = hp.productPassRate(LSY,USY,miuY,sigmaY_Taylor)
-    dsigmaY_depsiloni_v = hp.dsigmaY_depsiloni(D,sigmaX_loaf,i,dsigmai_loaf_depsiloni_v)
-    dbeta_depsiloni_L_v = hp.dbeta_depsiloni_as(LSY, USY, miuY, sigmaY_Taylor, dmiuy_depsiloni_L_v, dsigmaY_depsiloni_v)
-    grad_equation_epsilon_L[i] = hp.dU_depsiloni_as(Cprocess,Ccontrol,Sp,dCcontrol_depsiloni_L_v, beta, dbeta_depsiloni_L_v)
-    print('Equation: '+'depsilon (left)'+str(i),'=',grad_equation_epsilon_L[i])    
+    # ## Gradient by equation: left
+    # epsilonL_i = epsilon[i]
+    # epsilonR_i = epsilon[i+m]
+    # dCcontrol_depsiloni_L_v = hp.dCcontrol_depsiloni(HL[i],VL[i],epsilonL_i,reciprocal=RECIPROCAL)
+    # dmiuy_depsiloni_L_v = hp.dmiuY_depsiloni(i,miuX,sigmaX[i],left=True)
+    # dsigmai_loaf_depsiloni_v = hp.dsigmai_loaf_depsiloni_as(epsilonL_i,epsilonR_i,sigmaX[i])
+    # beta = hp.productPassRate(LSY,USY,miuY,sigmaY_Taylor)
+    # dsigmaY_depsiloni_v = hp.dsigmaY_depsiloni(D,sigmaX_loaf,i,dsigmai_loaf_depsiloni_v)
+    # dbeta_depsiloni_L_v = hp.dbeta_depsiloni_as(LSY, USY, miuY, sigmaY_Taylor, dmiuy_depsiloni_L_v, dsigmaY_depsiloni_v)
+    # grad_equation_epsilon_L[i] = hp.dU_depsiloni_as(Cprocess,Ccontrol,Sp,dCcontrol_depsiloni_L_v, beta, dbeta_depsiloni_L_v)
+    # print('Equation: '+'depsilon (left)'+str(i),'=',grad_equation_epsilon_L[i])    
     
     ## Gradient computed by mumeracal estimation: right
     epsiloni_add_small_number_R = np.copy(epsilon[:])
     epsiloni_minus_small_number_R = np.copy(epsilon[:])
-    epsiloni_add_small_number_R[i+m] +=  small_number ## Attention, do not forget "+m"
-    epsiloni_minus_small_number_R[i+m] -=  small_number
-    Ccontrol_plus_R = hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsiloni_add_small_number_R,m,RECIPROCAL)
-    Ccontrol_minus_R = hp.Ccontrol_as(GL,HL,VL,GR,HR,VR,epsiloni_minus_small_number_R,m,RECIPROCAL)
-    sigmaX_loaf_plus_R = hp.sigma_loaf_as(E,F,r, epsiloni_add_small_number_R,m)
-    sigmaX_loaf_minus_R = hp.sigma_loaf_as(E,F,r, epsiloni_minus_small_number_R,m)
-    miuX_plus_R = hp.miu_x_as(X, epsiloni_add_small_number_R, sigmaX, m)
-    miuX_minus_R = hp.miu_x_as(X, epsiloni_minus_small_number_R, sigmaX, m)
+    epsiloni_add_small_number_R[i] +=  small_number ## Attention, do not forget "+m"
+    epsiloni_minus_small_number_R[i] -=  small_number
+    Ccontrol_plus_R = hp.Ccontrol_as_single_side(G,H,V,epsiloni_add_small_number_R,RECIPROCAL)
+    Ccontrol_minus_R = hp.Ccontrol_as_single_side(G,H,V,epsiloni_minus_small_number_R,RECIPROCAL)
+    sigmaX_loaf_plus_R = hp.sigma_loaf_as(E,F,r, epsiloni_add_small_number_R,m, False)
+    sigmaX_loaf_minus_R = hp.sigma_loaf_as(E,F,r, epsiloni_minus_small_number_R,m, False)
+    miuX_plus_R = hp.miu_x_as(X, epsiloni_add_small_number_R, sigmaX, m, False)
+    miuX_minus_R = hp.miu_x_as(X, epsiloni_minus_small_number_R, sigmaX, m, False)
     miuY_plus_R = hp.f_crank(miuX_plus_R)
     miuY_minus_R = hp.f_crank(miuX_minus_R)
     sigmaY_Taylor_plus_R = hp.sigmaY(sigmaX_loaf_plus_R,D)
@@ -174,9 +175,9 @@ for i in range(0,m):
     print('Numerical: '+'depsilon (right)'+str(i),'=',grad_numerical_epsilon_R[i])
 
     ## Gradient by equation: right
-    epsilonL_i = epsilon[i]
-    epsilonR_i = epsilon[i+m]
-    dCcontrol_depsiloni_R_v = hp.dCcontrol_depsiloni(HR[i],VR[i],epsilonR_i,reciprocal=RECIPROCAL)
+    epsilonL_i = 0
+    epsilonR_i = epsilon[i]
+    dCcontrol_depsiloni_R_v = hp.dCcontrol_depsiloni(H[i],V[i],epsilonR_i,reciprocal=RECIPROCAL)
     dmiuy_depsiloni_R_v = hp.dmiuY_depsiloni(i,miuX,sigmaX[i],left=False)
     dsigmai_loaf_depsiloni_v = hp.dsigmai_loaf_depsiloni_as(epsilonL_i,epsilonR_i,sigmaX[i])
     beta = hp.productPassRate(LSY,USY,miuY,sigmaY_Taylor)
@@ -194,11 +195,11 @@ graderror_r = distance12_r/(length1_r + length2_r)
 print('error of dr=',graderror_r)
 
 ## Epsilon (left)
-distance12_epsilon_L =  distance.euclidean(grad_equation_epsilon_L,grad_numerical_epsilon_L)
-length1_epsilon_L = distance.euclidean(grad_equation_epsilon_L,np.zeros_like(grad_equation_epsilon_L))
-length2_epsilon_L = distance.euclidean(grad_numerical_epsilon_L,np.zeros_like(grad_numerical_epsilon_L))
-graderror_epsilon_L = distance12_epsilon_L/(length1_epsilon_L + length2_epsilon_L)
-print('error of depsilon (left)=',graderror_epsilon_L)
+# distance12_epsilon_L =  distance.euclidean(grad_equation_epsilon_L,grad_numerical_epsilon_L)
+# length1_epsilon_L = distance.euclidean(grad_equation_epsilon_L,np.zeros_like(grad_equation_epsilon_L))
+# length2_epsilon_L = distance.euclidean(grad_numerical_epsilon_L,np.zeros_like(grad_numerical_epsilon_L))
+# graderror_epsilon_L = distance12_epsilon_L/(length1_epsilon_L + length2_epsilon_L)
+# print('error of depsilon (left)=',graderror_epsilon_L)
 
 
 ## Epsilon (right)
