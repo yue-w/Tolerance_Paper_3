@@ -490,16 +490,16 @@ def plot_test(r_opt, epsilon_opt, E,F,m,Na,Nb,X,clutch=True,double_side=True):
     n_bins = 50
     for i in range(m):
         plt.figure()
-        plt.hist(x_sample[i], bins=n_bins,density=True, edgecolor="yellow", facecolor='green')
+        plt.hist(x_sample[i], bins=n_bins,density=False, edgecolor="yellow", facecolor='green')
         title = f'$X_{i+1}$' 
         plt.title(title)
         plt.xlabel("Dimension (mm)")
-        plt.ylabel("Probability")
+        plt.ylabel("Frequency")
         plt.savefig(fname='hist_component_' + str(i+1) + ".tif", dpi=300)
     plt.figure()
-    plt.hist(y_sample, bins=n_bins,density=True, edgecolor="yellow", facecolor='green')
+    plt.hist(y_sample, bins=n_bins,density=False, edgecolor="yellow", facecolor='green')
     plt.xlabel("Dimension (mm)")
-    plt.ylabel("Probability")
+    plt.ylabel("Frequency")
     plt.title('$Y$')
     plt.savefig(fname='hist_Y.tif',dpi=300)
     plt.show()

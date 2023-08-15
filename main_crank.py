@@ -734,7 +734,7 @@ def plot_compare_U(x, U1, U2, x_label, y_label,label1, label2,\
     fig.savefig(fname,dpi=300)
     plt.show()
 
-def comparison(min_epsilon=0, max_epsilon=4, count=10):
+def comparison(min_epsilon=0, max_epsilon=4, count=10,r=None):
     """
     Compare the proposed method to the method proposed in JCP paper.
     """
@@ -747,18 +747,21 @@ def comparison(min_epsilon=0, max_epsilon=4, count=10):
     rst_U_simu = np.zeros(count)
     rst_sigmaY_eq = np.zeros(count)
     rst_sigmaY_simu = np.zeros(count)
+
+    ## Compare sigmaY
     for i, epsilon in enumerate(epsilons):
-        ## get the U, and sigmaY from both equation and simulation of the JCP method
-        U_eq_jcp,U_simu_jcp, sigmaY_eq_jcp, sigmaY_simu_jcp = \
-            casestudy_U_jcp(epsilon, control_cost=True)
-        rst_U_eq_jcp[i] = U_eq_jcp
-        rst_U_simu_jcp[i] = U_simu_jcp
+        ## JCP
+        sigma_opt = hp.sigma(E,F,r)
+        sigmaY_eq_jcp = hp.sigmaY(sigma_opt, D)
+        epsilon_fixed = np.array([epsilon] * (2 * m))
+        miuY = Y0
+        _, Y, _ = hp.estimateM(X,E,F,r,epsilon_fixed,USY,miuY,Na,Nb,m,clutch=False)
+        sigmaY_simu_jcp = np.std(Y)
         rst_sigmaY_eq_jcp[i] = sigmaY_eq_jcp
         rst_sigmaY_simu_jcp[i] = sigmaY_simu_jcp
-        U_eq, U_simu, sigmaY_eq, sigmaY_simu = \
-            casestudy_U_this(epsilon, control_cost=True)
-        rst_U_eq[i] = U_eq
-        rst_U_simu[i] = U_simu
+
+        ## This paper
+        sigmaY_eq, sigmaY_simu = hp.compare_SigmaY(Y,r,epsilon_fixed,D,E,F,m)
         rst_sigmaY_eq[i] = sigmaY_eq
         rst_sigmaY_simu[i] = sigmaY_simu
 
@@ -777,6 +780,37 @@ def comparison(min_epsilon=0, max_epsilon=4, count=10):
         marker1='^', marker2='p',\
         fname="compare_error_sigY.tiff")
 
+
+    for i, epsilon in enumerate(epsilons):
+        ## get the U, and sigmaY from both equation and simulation of the JCP method
+        U_eq_jcp,U_simu_jcp, _, _ = \
+            casestudy_U_jcp(epsilon, control_cost=True)
+        rst_U_eq_jcp[i] = U_eq_jcp
+        rst_U_simu_jcp[i] = U_simu_jcp
+        # rst_sigmaY_eq_jcp[i] = sigmaY_eq_jcp
+        # rst_sigmaY_simu_jcp[i] = sigmaY_simu_jcp
+        U_eq, U_simu, _, _ = \
+            casestudy_U_this(epsilon, control_cost=True)
+        rst_U_eq[i] = U_eq
+        rst_U_simu[i] = U_simu
+        # rst_sigmaY_eq[i] = sigmaY_eq
+        # rst_sigmaY_simu[i] = sigmaY_simu
+
+    # error_sigY_eq_jcp = (rst_sigmaY_eq_jcp - rst_sigmaY_simu_jcp) / rst_sigmaY_simu_jcp * 100
+    # error_sigY_eq_jcp = np.abs(error_sigY_eq_jcp)
+    # error_sigY_eq = (rst_sigmaY_eq - rst_sigmaY_simu) / rst_sigmaY_simu * 100
+    # error_sigY_eq = np.abs(error_sigY_eq)
+    # print(f"Error of U by JCP: {error_sigY_eq_jcp}%")
+    # print(f"Error of U by this research: {error_sigY_eq}%")
+    
+    # plot_compare_error(epsilons, error_sigY_eq, error_sigY_eq_jcp, r'$\it{\tau}$', \
+    #     y1_label=r'Relative error (%) of $\it{\sigma}_Y$', \
+    #     y2_label=r'Relative error (%) of $\it{\sigma}_Y$ (Wang et al. 2021)',\
+    #     label1 = "This paper",\
+    #     label2 = "Wang et al. 2021",\
+    #     marker1='^', marker2='p',\
+    #     fname="compare_error_sigY.tiff")
+
     error_U_eq_jcp = (rst_U_eq_jcp - rst_U_simu_jcp) / rst_U_simu_jcp * 100
     error_U_eq_jcp = np.abs(error_U_eq_jcp)
     error_U_eq = (rst_U_eq - rst_U_simu) / rst_U_simu * 100
@@ -784,7 +818,7 @@ def comparison(min_epsilon=0, max_epsilon=4, count=10):
     print(f"Error of U by JCP: {error_U_eq_jcp}%")
     print(f"Error of U by this research: {error_U_eq}%")
     
-    plot_compare_error(epsilons, error_U_eq, error_U_eq_jcp, x_label=r'$\it{\tau}$', \
+    plot_compare_error(epsilons, error_U_eq, error_U_eq_jcp, r'$\it{\tau_{max}}$', \
         y1_label=r'Relative error (%) of $U$', \
         y2_label=r'Relative error (%) of $U$ (Wang et al. 2021)',\
         label1 = "This paper",\
@@ -792,7 +826,7 @@ def comparison(min_epsilon=0, max_epsilon=4, count=10):
         marker1='+', marker2='x',\
         fname="compare_error_U.tiff")
     
-    plot_compare_U(epsilons, rst_U_simu, rst_U_simu_jcp, r'$\it{\tau}$',\
+    plot_compare_U(epsilons, rst_U_simu, rst_U_simu_jcp, r'$\it{\tau_{max}}$',\
          y_label="$U$",label1="This paper",label2="Wang et al. 2021")
 
 def comparison_single_side(min_epsilon=0, max_epsilon=4, count=10):
@@ -881,7 +915,7 @@ def comparison_single_side(min_epsilon=0, max_epsilon=4, count=10):
 if __name__ == "__main__":
     M,U,Y,result = casestudy_U()
     print("################## Experiment 1 ###################")
-    comparison()
+    comparison(r=result['r'])
     # M,U,Y,result = casestudy_U_single_side()
     # print("################## Experiment 1 ###################")
     # comparison_single_side(max_epsilon=4)
